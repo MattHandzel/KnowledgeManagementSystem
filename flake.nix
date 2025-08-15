@@ -102,6 +102,7 @@
             
             # Development tools
             python3Packages.pytest
+            python3Packages.pytest-mock
             python3Packages.black
             python3Packages.flake8
             python3Packages.mypy
