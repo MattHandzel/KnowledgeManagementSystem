@@ -7,7 +7,7 @@ Handles writing captures to daily markdown files in the vault.
 import os
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import yaml
@@ -121,11 +121,20 @@ class SafeMarkdownWriter:
     
     def format_capture(self, capture_data: Dict[str, Any]) -> str:
         """Format capture data as markdown with YAML frontmatter."""
-        timestamp = capture_data.get('timestamp', datetime.now())
-        capture_id = capture_data.get('capture_id', self.generate_capture_id(timestamp))
+        ts_input = capture_data.get('timestamp')
+        if ts_input is None:
+            ts_now = datetime.now(timezone.utc).replace(microsecond=0)
+            iso_ts = ts_now.isoformat()
+            timestamp_for_id = ts_now
+        else:
+            iso_ts = ts_input.isoformat()
+            timestamp_for_id = ts_input
+        capture_id = capture_data.get('capture_id', self.generate_capture_id(timestamp_for_id))
         
         frontmatter = {
-            'timestamp': timestamp.isoformat(),
+            'timestamp': iso_ts,
+            'id': capture_id,
+            'aliases': [capture_id],
             'capture_id': capture_id,
             'modalities': capture_data.get('modalities', ['text']),
             'context': capture_data.get('context', {}),
@@ -133,21 +142,23 @@ class SafeMarkdownWriter:
             'location': capture_data.get('location'),
             'metadata': capture_data.get('metadata', {}),
             'processing_status': 'raw',
-            'importance': capture_data.get('importance', 0.5),
-            'tags': capture_data.get('tags', [])
+            'importance': capture_data.get('importance', None),
+            'tags': capture_data.get('tags', []),
+            'created_date': capture_data.get('created_date', timestamp_for_id.date().isoformat()),
+            'last_edited_date': capture_data.get('last_edited_date', timestamp_for_id.date().isoformat()),
         }
         
         content_sections = []
         
-        if 'content' in capture_data and capture_data['content'].strip():
-            content_sections.append(f"## Content\n{capture_data['content']}\n")
+        if str(capture_data.get('content', '')).strip():
+            content_sections.append(f"## Content\n{capture_data.get('content')}\n")
         
-        if 'clipboard' in capture_data and capture_data['clipboard'].strip():
-            clipboard_content = capture_data['clipboard']
-            if clipboard_content.startswith('```') or '\n' in clipboard_content:
-                content_sections.append(f"## Clipboard\n{clipboard_content}\n")
+        clip = str(capture_data.get('clipboard', '') or '')
+        if clip.strip():
+            if clip.startswith('```') or '\n' in clip:
+                content_sections.append(f"## Clipboard\n{clip}\n")
             else:
-                content_sections.append(f"## Clipboard\n```\n{clipboard_content}\n```\n")
+                content_sections.append(f"## Clipboard\n```\n{clip}\n```\n")
         
         media_files = capture_data.get('media_files', [])
         if media_files:
@@ -169,15 +180,7 @@ class SafeMarkdownWriter:
             content_sections.append(media_section)
         
         yaml_content = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
-        
-        formatted_content = f"""
----
-{yaml_content}---
-
-
-{chr(10).join(content_sections)}
-"""
-        
+        formatted_content = f"---\n{yaml_content}---\n{''.join(content_sections)}"
         return formatted_content
     
     def generate_capture_id(self, timestamp: datetime) -> str:
