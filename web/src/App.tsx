@@ -64,7 +64,6 @@ const App: React.FC = () => {
     setSources('')
     setModalities(['text'])
     setMediaFiles([])
-    setSavedTo(null)
   }
   const onFiles = (files: FileList | null) => {
     if (!files) return
@@ -109,6 +108,9 @@ const App: React.FC = () => {
       const j = await r.json()
       setSavedTo(j.saved_to || null)
       resetForm()
+      if (j.saved_to) {
+        setTimeout(() => setSavedTo(null), 4000)
+      }
     } catch {
       setSavedTo(null)
     } finally {

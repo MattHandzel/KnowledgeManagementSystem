@@ -60,7 +60,7 @@ async def api_capture(
     media: Optional[List[UploadFile]] = File(None),
 ):
     cfg = normalize_config(load_config())
-    writer = SafeMarkdownWriter(cfg["vault"]["path"], cfg["vault"]["capture_dir"], cfg["vault"]["media_dir"])
+    writer = SafeMarkdownWriter(Path(cfg["vault"]["path"]).expanduser())
     ts = datetime.now(timezone.utc)
     ts_str = ts.replace(microsecond=0).isoformat()
     cds = created_date or ts.date().isoformat()
