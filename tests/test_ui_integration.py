@@ -136,7 +136,6 @@ capture_id: '20240815_210000_001'
 modalities: ['text']
 context: {}
 sources: ['book: Deep Work']
-location: null
 metadata: {}
 processing_status: 'raw'
 importance: 0.5
@@ -153,7 +152,6 @@ capture_id: '20240815_210100_002'
 modalities: ['text', 'clipboard']
 context: {'activity': 'reading'}
 sources: ['website: example.com']
-location: null
 metadata: {}
 processing_status: 'raw'
 importance: 0.8

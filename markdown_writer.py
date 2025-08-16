@@ -7,7 +7,7 @@ Handles writing captures to daily markdown files in the vault.
 import os
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import yaml
@@ -38,7 +38,7 @@ class SafeMarkdownWriter:
     def get_idea_file(self, timestamp: Optional[datetime] = None, capture_id: Optional[str] = None) -> Path:
         """Get the individual idea markdown file path."""
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = datetime.now(timezone.utc)
         
         if capture_id is None:
             capture_id = self.generate_capture_id(timestamp)
@@ -49,7 +49,7 @@ class SafeMarkdownWriter:
     def get_unique_idea_file(self, timestamp: Optional[datetime] = None, capture_id: Optional[str] = None) -> Path:
         """Get a unique idea file path if the original exists."""
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = datetime.now(timezone.utc)
         
         if capture_id is None:
             capture_id = self.generate_capture_id(timestamp)
@@ -64,7 +64,7 @@ class SafeMarkdownWriter:
     
     def create_backup(self, file_path: Path) -> Path:
         """Create a timestamped backup of the file."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         backup_path = file_path.with_suffix(f'.backup.{timestamp}')
         
         try:
@@ -121,20 +121,26 @@ class SafeMarkdownWriter:
     
     def format_capture(self, capture_data: Dict[str, Any]) -> str:
         """Format capture data as markdown with YAML frontmatter."""
-        timestamp = capture_data.get('timestamp', datetime.now())
-        capture_id = capture_data.get('capture_id', self.generate_capture_id(timestamp))
+        ts = capture_data.get('timestamp', datetime.now(timezone.utc))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ts = ts.astimezone(timezone.utc).replace(microsecond=0)
+        capture_id = capture_data.get('capture_id', self.generate_capture_id(ts))
         
         frontmatter = {
-            'timestamp': timestamp.isoformat(),
+            'timestamp': ts.isoformat(),
+            'id': capture_id,
+            'aliases': [capture_id],
             'capture_id': capture_id,
             'modalities': capture_data.get('modalities', ['text']),
             'context': capture_data.get('context', {}),
             'sources': capture_data.get('sources', []),
-            'location': capture_data.get('location'),
             'metadata': capture_data.get('metadata', {}),
             'processing_status': 'raw',
-            'importance': capture_data.get('importance', 0.5),
-            'tags': capture_data.get('tags', [])
+            'importance': capture_data.get('importance', None),
+            'tags': capture_data.get('tags', []),
+            'created_date': ts.date().isoformat(),
+            'last_edited_date': ts.date().isoformat(),
         }
         
         content_sections = []
@@ -170,13 +176,7 @@ class SafeMarkdownWriter:
         
         yaml_content = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
         
-        formatted_content = f"""
----
-{yaml_content}---
-
-
-{chr(10).join(content_sections)}
-"""
+        formatted_content = f"---\n{yaml_content}---\n{''.join(content_sections)}"
         
         return formatted_content
     
@@ -221,7 +221,7 @@ class SafeMarkdownWriter:
     
     def save_media_file(self, source_path: Path, media_type: str) -> Path:
         """Save media file to media directory with unique name."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
         
         if source_path.suffix:
             extension = source_path.suffix
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     writer = SafeMarkdownWriter("~/notes")
     
     test_capture = {
-        'timestamp': datetime.now(),
+        'timestamp': datetime.now(timezone.utc),
         'content': 'This is a test capture',
         'context': {'activity': 'testing', 'location': 'home'},
         'tags': ['test', 'development'],

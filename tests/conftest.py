@@ -25,14 +25,8 @@ def sample_capture_data():
     return {
         'timestamp': datetime(2024, 8, 15, 21, 30, 45, 123456),
         'content': 'This is a test capture idea',
-        'context': {'activity': 'testing', 'location': 'home'},
+        'context': {'activity': 'testing'},
         'tags': ['test', 'development'],
         'sources': ['manual: test case'],
         'modalities': ['text'],
-        'location': {
-            'latitude': 42.2506,
-            'longitude': -71.0023,
-            'city': 'Test City',
-            'country': 'Test Country'
-        }
     }

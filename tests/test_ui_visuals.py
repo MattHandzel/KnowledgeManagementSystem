@@ -99,12 +99,7 @@ def test_modality_selector_highlight_when_active(mock_curses):
 
 
 @patch("capture_daemon.curses")
-@patch("capture_daemon.get_device_location")
-def test_save_does_not_stall_with_slow_geolocation(mock_geo, mock_curses, tmp_path, monkeypatch):
-    def slow_geo(timeout=0.5):
-        time.sleep(0.2)
-        return None
-    mock_geo.side_effect = slow_geo
+def test_save_does_not_stall_on_save(mock_curses, tmp_path, monkeypatch):
 
     mock_curses.A_BOLD = 0
     mock_curses.color_pair.side_effect = lambda n=0: 0

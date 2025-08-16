@@ -35,13 +35,12 @@ class TestConfigurationLoading:
                 'auto_start': True
             },
             'capture': {
-                'geolocation_enabled': True,
                 'sources_suggestions': True
             }
         }
         
         with config_file.open('w') as f:
-            yaml.dump(default_config, f)
+            yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
         
         loader = ConfigLoader(str(config_file))
         config = loader.load()
@@ -52,7 +51,6 @@ class TestConfigurationLoading:
         
         assert config['vault']['path'] == '~/notes'
         assert config['daemon']['auto_start'] is True
-        assert config['capture']['geolocation_enabled'] is True
     
     def test_config_validation(self, temp_config_dir):
         """Test: Invalid configuration is caught."""
@@ -67,7 +65,7 @@ class TestConfigurationLoading:
         }
         
         with config_file.open('w') as f:
-            yaml.dump(invalid_config, f)
+            yaml.dump(invalid_config, f, default_flow_style=False, sort_keys=False)
         
         loader = ConfigLoader(str(config_file))
         with pytest.raises(ValueError, match="Invalid configuration"):
@@ -117,7 +115,6 @@ class ConfigLoader:
                 'auto_start': True
             },
             'capture': {
-                'geolocation_enabled': True,
                 'sources_suggestions': True
             }
         }

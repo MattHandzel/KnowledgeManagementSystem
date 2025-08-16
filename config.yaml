@@ -14,7 +14,7 @@ ui:
   theme: "default"
   window_size: [80, 24]
   auto_focus_content: true
-  show_help: true
+  show_help: false
 
 capture:
   auto_detect_modalities: true

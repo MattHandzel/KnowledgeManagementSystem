@@ -13,7 +13,7 @@ import sys
 import os
 import tempfile
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml
@@ -22,7 +22,6 @@ import termios
 
 from markdown_writer import SafeMarkdownWriter
 from keybindings import SemanticKeybindings, Field, HelpDisplay, UIMode
-from geolocation import get_device_location
 
 
 class CaptureUI:
@@ -60,7 +59,7 @@ class CaptureUI:
         self.help_win = None
         self.idea_list_win = None
         self.active_field = Field.CONTENT
-        self.help_visible = bool(self.config.get('ui', {}).get('show_help', False))
+        self.help_visible = False
         
         self.keybindings = None
         
@@ -100,8 +99,11 @@ class CaptureUI:
         
         tags_y = context_y + 1
         self.tags_win = curses.newwin(1, width - 20, tags_y, 10)
+
+        sources_y = tags_y + 1
+        self.sources_win = curses.newwin(1, width - 20, sources_y, 10)
         
-        modalities_y = tags_y + 2
+        modalities_y = sources_y + 2
         self.modalities_win = curses.newwin(1, width - 4, modalities_y, 2)
         
         self.help_win = curses.newwin(height - 2, width - 4, 1, 2)
@@ -148,6 +150,11 @@ class CaptureUI:
         tags_active = self.active_field == Field.TAGS
         self.stdscr.addstr(tags_y, 2, "Tags:", 
                           curses.color_pair(1) if tags_active else 0)
+
+        sources_y = tags_y + 1
+        sources_active = self.active_field == Field.SOURCES
+        self.stdscr.addstr(sources_y, 2, "Sources:", 
+                          curses.color_pair(1) if sources_active else 0)
         
         help_y = height - 2
         help_text = "Ctrl+S Save  ESC Cancel  Tab Next Field  F1 Help"
@@ -159,6 +166,7 @@ class CaptureUI:
         self.draw_content()
         self.draw_context()
         self.draw_tags()
+        self.draw_sources()
         
         self.position_cursor()
     
@@ -703,6 +711,7 @@ class CaptureUI:
     def toggle_modality_by_index(self, index: int):
         """Toggle modality by index."""
         if 0 <= index < len(self.available_modalities):
+            self.modality_index = index
             modality = self.available_modalities[index]
             if modality in self.active_modalities:
                 self.active_modalities.discard(modality)
@@ -721,7 +730,7 @@ class CaptureUI:
             result = subprocess.run(['wl-paste', '-l'], 
                                   capture_output=True, text=True, timeout=2)
             if 'image/' in result.stdout:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
                 image_path = self.writer.media_dir / f"{timestamp}_clipboard.png"
                 
                 with image_path.open('wb') as f:
@@ -740,7 +749,7 @@ class CaptureUI:
     def capture_screenshot(self):
         """Capture screenshot."""
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
             screenshot_path = self.writer.media_dir / f"{timestamp}_screenshot.png"
             
             result = subprocess.run(['grim', str(screenshot_path)], 
@@ -760,20 +769,13 @@ class CaptureUI:
     def save_capture(self):
         """Save the current capture."""
         try:
-            location = None
-            if not getattr(self, "no_geo", False):
-                try:
-                    location = get_device_location(timeout=0.5)
-                except Exception:
-                    location = None
             
             capture_data = {
-                'timestamp': datetime.now(),
+                'timestamp': datetime.now(timezone.utc),
                 'content': self.content.strip(),
                 'context': {'activity': self.context.strip()} if self.context.strip() else {},
                 'tags': [tag.strip() for tag in self.tags.split(',') if tag.strip()],
                 'sources': [source.strip() for source in self.sources.split(',') if source.strip()],
-                'location': location,
                 'modalities': list(self.active_modalities),
                 **self.capture_data
             }

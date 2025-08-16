@@ -8,13 +8,12 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 import yaml
 import json
 
 from markdown_writer import SafeMarkdownWriter
-from geolocation import get_device_location
 
 
 class TestCaptureFlows:
@@ -38,16 +37,10 @@ class TestCaptureFlows:
         capture_data = {
             'timestamp': datetime(2024, 8, 15, 21, 30, 45, 123456),
             'content': 'This is a brilliant idea about productivity',
-            'context': {'activity': 'reading', 'location': 'home'},
+            'context': {'activity': 'reading'},
             'tags': ['productivity', 'idea'],
             'modalities': ['text'],
-            'sources': ['book: Deep Work'],
-            'location': {
-                'latitude': 42.2506,
-                'longitude': -71.0023,
-                'city': 'Quincy',
-                'country': 'United States'
-            }
+            'sources': ['book: Deep Work']
         }
         
         result_file = writer.write_capture(capture_data)
@@ -63,9 +56,13 @@ class TestCaptureFlows:
         
         parts = content.split('---', 2)
         frontmatter = yaml.safe_load(parts[1])
-        assert frontmatter['timestamp'] == '2024-08-15T21:30:45.123456'
+        assert frontmatter['timestamp'] == '2024-08-15T21:30:45+00:00'
+        assert frontmatter['id'] == frontmatter['capture_id']
+        assert frontmatter['aliases'] == [frontmatter['capture_id']]
+        assert frontmatter.get('importance') is None
+        assert 'created_date' in frontmatter and 'last_edited_date' in frontmatter
         assert frontmatter['sources'] == ['book: Deep Work']
-        assert frontmatter['location']['city'] == 'Quincy'
+        assert '\n---\n##' in content
     
     def test_multimodal_capture_flow(self, writer, temp_vault):
         """Test: User captures idea with multiple modalities."""
@@ -76,7 +73,7 @@ class TestCaptureFlows:
         fake_screenshot.write_bytes(b"fake image data")
         
         capture_data = {
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'content': 'Main idea content',
             'clipboard': 'Copied text from somewhere',
             'media_files': [{
@@ -104,7 +101,7 @@ class TestCaptureFlows:
     def test_capture_with_sources_array(self, writer):
         """Test: User can specify multiple sources for knowledge."""
         capture_data = {
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'content': 'Synthesis of ideas from multiple sources',
             'sources': [
                 'book: Atomic Habits',
@@ -132,7 +129,7 @@ class TestCaptureFlows:
     def test_empty_capture_handling(self, writer):
         """Test: System handles empty/minimal captures gracefully."""
         capture_data = {
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'content': '',  # Empty content
             'modalities': ['text']
         }
@@ -147,39 +144,7 @@ class TestCaptureFlows:
         assert 'timestamp' in frontmatter
         assert frontmatter['modalities'] == ['text']
     
-    @patch('geolocation.subprocess.run')
-    def test_geolocation_integration(self, mock_subprocess, writer):
-        """Test: Geolocation is properly integrated into captures."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps({
-            'status': 'success',
-            'lat': 42.3601,
-            'lon': -71.0589,
-            'city': 'Boston',
-            'country': 'United States',
-            'timezone': 'America/New_York'
-        })
-        mock_subprocess.return_value = mock_result
         
-        location = get_device_location()
-        capture_data = {
-            'timestamp': datetime.now(),
-            'content': 'Idea captured in Boston',
-            'location': location,
-            'modalities': ['text']
-        }
-        
-        result_file = writer.write_capture(capture_data)
-        
-        content = result_file.read_text()
-        parts = content.split('---', 2)
-        frontmatter = yaml.safe_load(parts[1])
-        
-        assert frontmatter['location']['city'] == 'Boston'
-        assert frontmatter['location']['latitude'] == 42.3601
-        assert frontmatter['location']['longitude'] == -71.0589
-    
     def test_iso_8601_timestamp_format(self, writer):
         """Test: All timestamps use ISO 8601 format."""
         test_time = datetime(2024, 8, 15, 21, 30, 45, 123456)
@@ -195,10 +160,11 @@ class TestCaptureFlows:
         parts = content.split('---', 2)
         frontmatter = yaml.safe_load(parts[1])
         
-        assert frontmatter['timestamp'] == '2024-08-15T21:30:45.123456'
+        assert frontmatter['timestamp'] == '2024-08-15T21:30:45+00:00'
         
         parsed_time = datetime.fromisoformat(frontmatter['timestamp'])
-        assert parsed_time == test_time
+        assert parsed_time == test_time.replace(microsecond=0, tzinfo=timezone.utc)
+        assert '\n---\n##' in content
 
 
 class TestFileOperations:
@@ -247,7 +213,7 @@ class TestFileOperations:
         """Test: File writes are atomic (no partial writes)."""
         large_content = "Large idea content\n" * 1000
         capture_data = {
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'content': large_content,
             'modalities': ['text']
         }
@@ -308,15 +274,6 @@ class TestErrorHandling:
         except Exception as e:
             assert "path" in str(e).lower() or "permission" in str(e).lower()
     
-    @patch('geolocation.subprocess.run')
-    def test_geolocation_failure_handling(self, mock_subprocess):
-        """Test: Captures work even when geolocation fails."""
-        mock_subprocess.side_effect = Exception("Network error")
-        
-        location = get_device_location()
-        
-        assert location is None
-        
     
     def test_malformed_yaml_recovery(self, temp_vault):
         """Test: System handles existing malformed files gracefully."""

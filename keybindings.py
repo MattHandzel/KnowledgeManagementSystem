@@ -87,6 +87,10 @@ class SemanticKeybindings:
         elif key_str == 'shift+tab':
             return self.handle_prev_field()
         
+        if isinstance(key, int) and ord('1') <= key <= ord('9'):
+            self.ui.toggle_modality_by_index(key - ord('1'))
+            return True
+        
         if self.current_field == Field.CONTENT:
             return self.handle_content_key(key_str, key)
         elif self.current_field == Field.CONTEXT:
@@ -296,7 +300,6 @@ class SemanticKeybindings:
         """Handle help command (F1)."""
         self.ui.show_help()
         return True
-    
     def handle_next_field(self) -> bool:
         """Handle next field navigation (Tab)."""
         fields = list(Field)
@@ -382,7 +385,7 @@ SOURCES FIELD:
 MODALITIES FIELD:
   ←→              Navigate between options
   Space/Enter     Toggle current modality
-  1-5             Toggle modality by number
+  1-9 / Ctrl+1-9  Toggle modality by number
 
 BROWSE MODE:
   ↑↓              Navigate idea list

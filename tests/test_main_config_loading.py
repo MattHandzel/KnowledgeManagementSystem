@@ -23,12 +23,12 @@ def test_main_uses_config_yaml_for_vault_path_without_override(mock_stdin, tmp_p
     }
     cfg_path = tmp_path / "config.yaml"
     import yaml as _yaml
-    cfg_path.write_text(_yaml.dump(cfg))
+    cfg_path.write_text(_yaml.dump(cfg, default_flow_style=False, sort_keys=False))
 
     import capture_daemon
     def fake_run_capture(self, mode):
         data = {
-            'timestamp': __import__('datetime').datetime.now(),
+            'timestamp': __import__('datetime').datetime.now(__import__('datetime').timezone.utc),
             'content': 'test',
             'context': {},
             'tags': [],
@@ -68,12 +68,12 @@ def test_main_respects_vault_path_override(mock_stdin, tmp_path, capsys):
     }
     cfg_path = tmp_path / "config.yaml"
     import yaml as _yaml
-    cfg_path.write_text(_yaml.dump(cfg))
+    cfg_path.write_text(_yaml.dump(cfg, default_flow_style=False, sort_keys=False))
 
     import capture_daemon
     def fake_run_capture(self, mode):
         data = {
-            'timestamp': __import__('datetime').datetime.now(),
+            'timestamp': __import__('datetime').datetime.now(__import__('datetime').timezone.utc),
             'content': 'override',
             'context': {},
             'tags': [],
