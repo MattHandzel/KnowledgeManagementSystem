@@ -2,6 +2,19 @@
 
 Ultra-lightweight, keyboard-driven knowledge capture system for NixOS and Hyprland. Provides instant popup capture interface with semantic keybindings and stores individual ideas as markdown files.
 
+## Web App
+
+An informational, minimalistic React web app is available under `client/`. It presents the system’s features, architecture, and documentation links.
+
+- Read-through: See docs/REPO_READTHROUGH.md
+- Local dev:
+  - cd client
+  - npm install
+  - npm run dev
+- Build:
+  - npm run build
+  - npm run preview
+
 ## Features
 
 - **Instant Response**: Background daemon with Unix socket communication
@@ -66,10 +79,10 @@ exec-once = python /path/to/capture_daemon/capture_daemon.py --daemon
 
 ```
 ~/notes/capture/raw_capture/
-├── 20240815_213245_123.md     # Individual idea files
+├── 20240815_213245_123.md
 ├── 20240815_213301_456.md
 ├── 20240815_213445_789.md
-└── media/                     # Media attachments
+└── media/
     ├── 20240815_213245_screenshot.png
     └── 20240815_213301_audio.wav
 ```
