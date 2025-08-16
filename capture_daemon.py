@@ -58,7 +58,7 @@ class CaptureUI:
         self.help_win = None
         self.idea_list_win = None
         self.active_field = Field.CONTENT
-        self.show_help = False
+        self.help_visible = bool(self.config.get('ui', {}).get('show_help', False))
         
         self.keybindings = None
         
@@ -102,7 +102,7 @@ class CaptureUI:
     
     def draw_ui(self):
         """Draw the complete UI."""
-        if self.show_help:
+        if self.help_visible:
             self.draw_help()
             return
         
@@ -121,28 +121,29 @@ class CaptureUI:
         
         content_active = self.active_field == Field.CONTENT
         self.draw_field_border(2, 1, height - 10, width - 2, "Content", content_active)
-        self.draw_content()
         
         context_y = height - 7
         context_active = self.active_field == Field.CONTEXT
         self.stdscr.addstr(context_y, 2, "Context:", 
                           curses.color_pair(1) if context_active else 0)
-        self.draw_context()
         
         tags_y = context_y + 1
         tags_active = self.active_field == Field.TAGS
         self.stdscr.addstr(tags_y, 2, "Tags:", 
                           curses.color_pair(1) if tags_active else 0)
-        self.draw_tags()
         
         help_y = height - 2
         help_text = "Ctrl+S Save  ESC Cancel  Tab Next Field  F1 Help"
         self.stdscr.addstr(help_y, (width - len(help_text)) // 2, help_text,
                           curses.color_pair(5))
         
-        self.position_cursor()
-        
         self.stdscr.refresh()
+        
+        self.draw_content()
+        self.draw_context()
+        self.draw_tags()
+        
+        self.position_cursor()
     
     def draw_field_border(self, y: int, x: int, height: int, width: int, 
                          title: str, active: bool):
@@ -305,6 +306,9 @@ class CaptureUI:
             elif mode == "multimodal":
                 self.active_modalities = {"text", "clipboard"}
             
+            if not sys.stdin.isatty() and os.environ.get('TERM') in (None, '', 'dumb'):
+                print("No interactive TTY detected; cannot launch capture UI.")
+                return False
             return curses.wrapper(self._run_ui_loop)
             
         except KeyboardInterrupt:
@@ -324,11 +328,11 @@ class CaptureUI:
                 key = stdscr.getch()
                 
                 if key == curses.KEY_F1:
-                    self.show_help = not self.show_help
+                    self.help_visible = not self.help_visible
                     continue
                 
-                if self.show_help:
-                    self.show_help = False
+                if self.help_visible:
+                    self.help_visible = False
                     continue
                 
                 should_continue = self.keybindings.handle_key(key)
@@ -672,7 +676,7 @@ class CaptureUI:
                 with image_path.open('wb') as f:
                     subprocess.run(['wl-paste', '-t', 'image/png'], stdout=f, timeout=5)
                 
-                if not hasattr(self.capture_data, 'media_files'):
+                if 'media_files' not in self.capture_data:
                     self.capture_data['media_files'] = []
                 self.capture_data['media_files'].append({
                     'type': 'image',
@@ -692,7 +696,7 @@ class CaptureUI:
                                   capture_output=True, timeout=10)
             
             if result.returncode == 0:
-                if not hasattr(self.capture_data, 'media_files'):
+                if 'media_files' not in self.capture_data:
                     self.capture_data['media_files'] = []
                 self.capture_data['media_files'].append({
                     'type': 'screenshot',
@@ -737,6 +741,13 @@ class CaptureUI:
                               f'Idea saved to {result_file.name}'], timeout=5)
             except Exception:
                 pass
+            if self.stdscr:
+                try:
+                    self.stdscr.addstr(0, 0, f"Saved: {result_file.name}".ljust(self.stdscr.getmaxyx()[1]-1), curses.color_pair(3))
+                    self.stdscr.refresh()
+                    curses.napms(800)
+                except Exception:
+                    pass
             
         except Exception as e:
             self.show_error(f"Error saving: {e}")
@@ -830,7 +841,7 @@ class CaptureUI:
     
     def show_help(self):
         """Toggle help display."""
-        self.show_help = not self.show_help
+        self.help_visible = not self.help_visible
 
 
 class CaptureDaemon:
@@ -855,7 +866,7 @@ class CaptureDaemon:
             return {
                 'vault': {'path': '~/notes', 'capture_dir': 'capture/raw_capture', 'media_dir': 'capture/raw_capture/media'},
                 'daemon': {'socket_path': '/tmp/capture_daemon.sock', 'auto_start': True, 'hot_reload': True},
-                'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True}
+                'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True, 'show_help': True}
             }
     
     def start(self):
@@ -898,26 +909,50 @@ class CaptureDaemon:
             
             if action == 'show_capture':
                 self.show_capture_ui(mode)
-                client_socket.send(b'OK')
+                try:
+                    client_socket.send(b'OK')
+                except BrokenPipeError:
+                    pass
             elif action == 'status':
-                client_socket.send(b'OK')
+                try:
+                    client_socket.send(b'OK')
+                except BrokenPipeError:
+                    pass
             elif action == 'stop':
-                client_socket.send(b'OK')
+                try:
+                    client_socket.send(b'OK')
+                except BrokenPipeError:
+                    pass
                 self.running = False
             else:
-                client_socket.send(b'ERROR')
+                try:
+                    client_socket.send(b'ERROR')
+                except BrokenPipeError:
+                    pass
                 
         except Exception as e:
             print(f"Error handling client: {e}")
-            client_socket.send(b'ERROR')
+            try:
+                client_socket.send(b'ERROR')
+            except BrokenPipeError:
+                pass
         finally:
             client_socket.close()
     
     def show_capture_ui(self, mode: str):
         """Show the capture UI."""
         try:
-            ui = CaptureUI(self.config)
-            ui.run_capture(mode)
+            headless = (not sys.stdin.isatty()) and os.environ.get('TERM') in (None, '', 'dumb')
+            if headless:
+                script_path = Path(__file__).resolve()
+                cmd = ['kitty', '-e', sys.executable, str(script_path), '--mode', mode]
+                try:
+                    subprocess.Popen(cmd)
+                except Exception as e:
+                    print(f"Failed to spawn kitty: {e}")
+            else:
+                ui = CaptureUI(self.config)
+                ui.run_capture(mode)
         except Exception as e:
             print(f"Error showing capture UI: {e}")
     
@@ -969,7 +1004,7 @@ def main():
         config = {
             'vault': {'path': args.vault_path or '~/notes', 'capture_dir': 'capture/raw_capture', 'media_dir': 'capture/raw_capture/media'},
             'daemon': {'socket_path': args.socket_path or '/tmp/capture_daemon.sock'},
-            'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True}
+            'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True, 'show_help': True}
         }
         
         ui = CaptureUI(config)

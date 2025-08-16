@@ -188,7 +188,7 @@ class SafeMarkdownWriter:
         """Convert absolute media path to relative path from capture directory."""
         media_path = Path(media_path)
         try:
-            relative_path = os.path.relpath(media_path, self.capture_dir)
+            relative_path = os.path.relpath(str(media_path), str(self.capture_dir))
             return relative_path
         except ValueError:
             return str(media_path)
