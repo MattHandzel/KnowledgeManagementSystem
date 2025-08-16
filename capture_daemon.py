@@ -67,21 +67,21 @@ class CaptureUI:
     def initialize_ui(self, stdscr):
         """Initialize the ncurses interface."""
         self.stdscr = stdscr
-        curses.curs_set(1)  # Show cursor
+        if self.stdscr is None:
+            raise RuntimeError("No stdscr provided to initialize_ui")
+        curses.curs_set(1)
         
         curses.start_color()
-        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)    # Active field
-        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Headers
-        curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)   # Success
-        curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)     # Error
-        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)    # Help
+        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
+        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
         
         self.create_windows()
         
         self.keybindings = SemanticKeybindings(self)
         
-        if stdscr is None:
-            raise RuntimeError("No stdscr provided to initialize_ui")
         self.draw_ui()
     def create_windows(self):
         """Create and position UI windows."""
@@ -105,6 +105,8 @@ class CaptureUI:
     
     def draw_ui(self):
         """Draw the complete UI."""
+        if not self.stdscr:
+            return
         if self.help_visible:
             self.draw_help()
             return
@@ -151,6 +153,8 @@ class CaptureUI:
     def draw_field_border(self, y: int, x: int, height: int, width: int, 
                          title: str, active: bool):
         """Draw a border around a field."""
+        if not self.stdscr:
+            return
         attr = curses.color_pair(1) if active else 0
         
         self.stdscr.addch(y, x, curses.ACS_ULCORNER, attr)
@@ -293,24 +297,37 @@ class CaptureUI:
     
     def position_cursor(self):
         """Position the cursor in the active field."""
+        if not self.stdscr:
+            return
         if self.active_field == Field.CONTENT:
+            if not self.content_win:
+                return
             lines = self.content[:self.content_cursor].split('\n')
             cursor_line = len(lines) - 1 - self.content_scroll
             cursor_col = len(lines[-1]) if lines else 0
-            
-            if 0 <= cursor_line < self.content_win.getmaxyx()[0]:
-                self.content_win.move(cursor_line, min(cursor_col, self.content_win.getmaxyx()[1] - 1))
+            max_y, max_x = self.content_win.getmaxyx()
+            if 0 <= cursor_line < max_y:
+                self.content_win.move(cursor_line, min(cursor_col, max_x - 1))
         
         elif self.active_field == Field.CONTEXT:
-            cursor_col = min(self.context_cursor, self.context_win.getmaxyx()[1] - 1)
+            if not self.context_win:
+                return
+            max_y, max_x = self.context_win.getmaxyx()
+            cursor_col = min(self.context_cursor, max_x - 1)
             self.context_win.move(0, cursor_col)
         
         elif self.active_field == Field.TAGS:
-            cursor_col = min(self.tags_cursor, self.tags_win.getmaxyx()[1] - 1)
+            if not self.tags_win:
+                return
+            max_y, max_x = self.tags_win.getmaxyx()
+            cursor_col = min(self.tags_cursor, max_x - 1)
             self.tags_win.move(0, cursor_col)
         
         elif self.active_field == Field.SOURCES:
-            cursor_col = min(self.sources_cursor, self.sources_win.getmaxyx()[1] - 1)
+            if not self.sources_win:
+                return
+            max_y, max_x = self.sources_win.getmaxyx()
+            cursor_col = min(self.sources_cursor, max_x - 1)
             self.sources_win.move(0, cursor_col)
     
     def run_capture(self, mode: str = "quick") -> bool:
@@ -759,9 +776,10 @@ class CaptureUI:
                               f'Idea saved to {result_file.name}'], timeout=5)
             except Exception:
                 pass
-            if self.stdscr:
+            if getattr(self, "stdscr", None):
                 try:
-                    self.stdscr.addstr(0, 0, f"Saved: {result_file.name}".ljust(self.stdscr.getmaxyx()[1]-1), curses.color_pair(3))
+                    h, w = self.stdscr.getmaxyx()
+                    self.stdscr.addstr(0, 0, f"Saved: {result_file.name}".ljust(max(1, w - 1)), curses.color_pair(3))
                     self.stdscr.refresh()
                     curses.napms(800)
                 except Exception:
