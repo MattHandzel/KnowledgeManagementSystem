@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml
+import termios
+
 
 from markdown_writer import SafeMarkdownWriter
 from keybindings import SemanticKeybindings, Field, HelpDisplay, UIMode
@@ -342,6 +344,7 @@ class CaptureUI:
     
     def run_capture(self, mode: str = "quick") -> bool:
         """Run the capture interface and return True if saved."""
+        old_iflag = None
         try:
             if mode == "clipboard":
                 self.capture_clipboard_content()
@@ -357,13 +360,16 @@ class CaptureUI:
             if not sys.stdin.isatty() and os.environ.get('TERM') in (None, '', 'dumb'):
                 print("No interactive TTY detected; cannot launch capture UI.")
                 return False
-            return curses.wrapper(self._run_ui_loop)
-            
+            old_iflag = self._disable_flow_control_if_possible()
+            result = curses.wrapper(self._run_ui_loop)
+            return result
         except KeyboardInterrupt:
             return False
         except Exception as e:
             print(f"Error in capture UI: {e}")
             return False
+        finally:
+            self._restore_flow_control_if_needed(old_iflag)
     
     def _run_ui_loop(self, stdscr) -> bool:
         """Main UI loop."""
@@ -755,10 +761,11 @@ class CaptureUI:
         """Save the current capture."""
         try:
             location = None
-            try:
-                location = get_device_location(timeout=0.5)
-            except Exception:
-                location = None
+            if not getattr(self, "no_geo", False):
+                try:
+                    location = get_device_location(timeout=0.5)
+                except Exception:
+                    location = None
             
             capture_data = {
                 'timestamp': datetime.now(),
@@ -782,15 +789,20 @@ class CaptureUI:
             if 'media_files' in self.capture_data:
                 capture_data['media_files'] = self.capture_data['media_files']
             
+            if os.environ.get("KMS_DEBUG_SAVE") == "1":
+                print("[KMS_DEBUG] calling writer.write_capture()", flush=True)
             result_file = self.writer.write_capture(capture_data)
+            if os.environ.get("KMS_DEBUG_SAVE") == "1":
+                print(f"[KMS_DEBUG] write_capture() ok: {result_file}", flush=True)
             self.last_saved_file = str(result_file)
             
-            try:
-                subprocess.Popen(['notify-send', '-t', '2000', '-u', 'normal', 
-                              '-i', 'dialog-information', 'Capture Success', 
-                              f'Idea saved to {result_file.name}'])
-            except Exception:
-                pass
+            if not getattr(self, "no_notify", False):
+                try:
+                    subprocess.Popen(['notify-send', '-t', '2000', '-u', 'normal', 
+                                  '-i', 'dialog-information', 'Capture Success', 
+                                  f'Idea saved to {result_file.name}'])
+                except Exception:
+                    pass
             if getattr(self, "stdscr", None):
                 try:
                     h, w = self.stdscr.getmaxyx()
@@ -888,8 +900,30 @@ class CaptureUI:
         self.enter_edit_mode()
     
     def toggle_help(self):
-        """Toggle help display."""
         self.help_visible = not self.help_visible
+
+    def _disable_flow_control_if_possible(self):
+        try:
+            if hasattr(sys.stdin, "fileno") and sys.stdin.isatty():
+                fd = sys.stdin.fileno()
+                attrs = termios.tcgetattr(fd)
+                old_iflag = attrs[0]
+                attrs[0] = attrs[0] & ~termios.IXON
+                termios.tcsetattr(fd, termios.TCSANOW, attrs)
+                return old_iflag
+        except Exception:
+            pass
+        return None
+
+    def _restore_flow_control_if_needed(self, old_iflag):
+        try:
+            if old_iflag is not None and hasattr(sys.stdin, "fileno") and sys.stdin.isatty():
+                fd = sys.stdin.fileno()
+                attrs = termios.tcgetattr(fd)
+                attrs[0] = old_iflag
+                termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        except Exception:
+            pass
 
     def show_help(self):
         self.toggle_help()
@@ -1038,6 +1072,8 @@ def main():
     parser.add_argument('--vault-path', help='Vault path override')
     parser.add_argument('--socket-path', help='Socket path override')
     parser.add_argument('--mode', default='quick', help='Capture mode for direct UI')
+    parser.add_argument('--no-geo', action='store_true', help='Disable geolocation during save')
+    parser.add_argument('--no-notify', action='store_true', help='Disable desktop notifications')
     
     args = parser.parse_args()
     
@@ -1068,6 +1104,8 @@ def main():
             config.setdefault('daemon', {})['socket_path'] = args.socket_path
         
         ui = CaptureUI(config)
+        ui.no_geo = args.no_geo
+        ui.no_notify = args.no_notify
         success = ui.run_capture(args.mode)
         try:
             if getattr(ui, "last_saved_file", None):

@@ -5,6 +5,7 @@ Provides vim-inspired but intuitive keybindings.
 """
 
 import curses
+import os
 from typing import Dict, Callable, Optional, Any
 from enum import Enum
 
@@ -279,7 +280,11 @@ class SemanticKeybindings:
     
     def handle_save(self) -> bool:
         """Handle save command (Ctrl+S)."""
+        if os.environ.get("KMS_DEBUG_SAVE") == "1":
+            print("[KMS_DEBUG] Ctrl+S received; invoking save_capture()", flush=True)
         self.ui.save_capture()
+        if os.environ.get("KMS_DEBUG_SAVE") == "1":
+            print("[KMS_DEBUG] save_capture() returned; exiting loop", flush=True)
         return False  # Exit the input loop
     
     def handle_cancel(self) -> bool:
