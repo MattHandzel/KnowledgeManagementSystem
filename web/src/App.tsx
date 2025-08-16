@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import CaptureForm from './components/CaptureForm'
 import ModalityBar from './components/ModalityBar'
 import ClipboardPreview from './components/ClipboardPreview'
@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [savedTo, setSavedTo] = useState<string | null>(null)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
-  const ctrlDown = useRef(false)
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
@@ -29,24 +28,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') ctrlDown.current = true
       if (e.key === 'F1') { e.preventDefault(); setHelp(x => !x) }
       if (e.key.toLowerCase() === 's' && e.ctrlKey) { e.preventDefault(); onSave() }
       if (e.key === 'Escape') { e.preventDefault(); resetForm() }
-      if (ctrlDown.current && /^[1-9]$/.test(e.key)) {
+      if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
         toggleModalityByIndex(idx)
       }
     }
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') ctrlDown.current = false
-    }
     window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
     }
   }, [modalities])
 
@@ -122,7 +115,10 @@ const App: React.FC = () => {
 
   return (
     <div className="container">
-      <h1>KMS Capture</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>KMS Capture</h1>
+        <button aria-label="Help" onClick={() => setHelp(true)}>Help</button>
+      </div>
       <ModalityBar modalities={modalities} onToggle={toggleModality} onScreenshot={onScreenshot} />
       <CaptureForm
         content={content} setContent={setContent}
