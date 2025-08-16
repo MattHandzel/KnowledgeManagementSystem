@@ -80,10 +80,13 @@ class CaptureUI:
         
         self.keybindings = SemanticKeybindings(self)
         
+        if stdscr is None:
+            raise RuntimeError("No stdscr provided to initialize_ui")
         self.draw_ui()
-    
     def create_windows(self):
         """Create and position UI windows."""
+        if self.stdscr is None:
+            raise RuntimeError("UI stdscr not initialized")
         height, width = self.stdscr.getmaxyx()
         
         content_height = max(8, height - 12)
@@ -250,25 +253,43 @@ class CaptureUI:
         self.idea_list_win.refresh()
     
     def draw_help(self):
-        """Draw the help overlay."""
-        self.stdscr.clear()
+        """Draw the help overlay with clamped bounds."""
+        if not self.stdscr:
+            return
         height, width = self.stdscr.getmaxyx()
-        
-        for y in range(height):
-            self.stdscr.addstr(y, 0, " " * width, curses.color_pair(5))
-        
+        max_cols = max(1, width - 1)
+        max_rows = max(1, height)
+
+        self.stdscr.clear()
+
+        bg = " " * max_cols
+        for y in range(max_rows):
+            try:
+                self.stdscr.addstr(y, 0, bg, curses.color_pair(5))
+            except Exception:
+                pass
+
         help_text = HelpDisplay.get_help_text()
         lines = help_text.split('\n')
-        
-        start_y = max(0, (height - len(lines)) // 2)
+
+        start_y = max(0, (max_rows - len(lines)) // 2)
         for i, line in enumerate(lines):
-            if start_y + i >= height - 1:
+            y = start_y + i
+            if y >= max_rows:
                 break
-            
-            x = max(0, (width - len(line)) // 2)
-            self.stdscr.addstr(start_y + i, x, line[:width - 1], curses.color_pair(5))
-        
-        self.stdscr.refresh()
+            text = line[:max_cols]
+            x = max(0, (max_cols - len(text)) // 2)
+            if x >= max_cols:
+                continue
+            try:
+                self.stdscr.addstr(y, x, text, curses.color_pair(5))
+            except Exception:
+                pass
+
+        try:
+            self.stdscr.refresh()
+        except Exception:
+            pass
     
     def position_cursor(self):
         """Position the cursor in the active field."""
@@ -327,12 +348,9 @@ class CaptureUI:
             try:
                 key = stdscr.getch()
                 
-                if key == curses.KEY_F1:
-                    self.help_visible = not self.help_visible
-                    continue
-                
                 if self.help_visible:
                     self.help_visible = False
+                    self.draw_ui()
                     continue
                 
                 should_continue = self.keybindings.handle_key(key)
@@ -839,9 +857,12 @@ class CaptureUI:
         """Select current idea for editing."""
         self.enter_edit_mode()
     
-    def show_help(self):
+    def toggle_help(self):
         """Toggle help display."""
         self.help_visible = not self.help_visible
+
+    def show_help(self):
+        self.toggle_help()
 
 
 class CaptureDaemon:
