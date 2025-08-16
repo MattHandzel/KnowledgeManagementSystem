@@ -1,61 +1,97 @@
 # Running KMS as a Desktop Application
 
+## ⚠️ Current Status: Electron Setup Requires Graphical Environment
+
+**TESTED RESULT**: The Electron desktop application requires a graphical environment (X server/Wayland) to run. It **cannot run in headless environments** like servers or containers without display capabilities.
+
 ## Prerequisites
 
-1. **Install Node.js dependencies for Electron:**
+1. **System Requirements:**
+   - Graphical desktop environment (X11, Wayland, or Windows/macOS desktop)
+   - Node.js and npm installed
+   - Python 3.8+ with pip
+
+2. **Install Node.js dependencies for Electron:**
    ```bash
    cd electron/
    npm install
    ```
 
-2. **Install Python dependencies for the backend server:**
+3. **Install Python dependencies for the backend server:**
    ```bash
    cd server/
    python -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
+   pip install fastapi uvicorn pyyaml python-multipart
    ```
 
 ## Running the Desktop Application
 
-### Option 1: Development Mode (Recommended)
+### ✅ Working Method: Manual Component Startup
+
+**Step 1: Start the backend server**
+```bash
+cd server/
+source .venv/bin/activate
+python app.py
+```
+*Backend will start on http://localhost:5174*
+
+**Step 2: Start the web app (in new terminal)**
+```bash
+cd web/
+npm run dev
+```
+*Web app will start on http://localhost:5173 (or next available port)*
+
+**Step 3: Launch Electron (in new terminal, requires graphical environment)**
 ```bash
 cd electron/
+npm start
+```
+
+### ❌ Known Issues with `npm run dev`
+
+The `npm run dev` command in electron/ directory **does not work reliably** due to:
+- Port conflicts between concurrent processes
+- Backend server startup timing issues  
+- Electron requiring display server that may not be available
+- Process management complexity with concurrently
+
+**Error Examples:**
+```
+[ERROR] Missing X server or $DISPLAY
+[ERROR] Address already in use (port conflicts)
+[ERROR] socket hang up (proxy connection failures)
+```
+
+## Alternative: Web Browser Access (Recommended for Testing)
+
+Since Electron requires a graphical environment, you can test all functionality using a web browser:
+
+**Step 1: Start backend server**
+```bash
+cd server/
+source .venv/bin/activate
+python app.py
+```
+
+**Step 2: Start web app**
+```bash
+cd web/
 npm run dev
 ```
 
-This will:
-- Start the React web app (Vite dev server)
-- Start the FastAPI backend server
-- Launch Electron with the application
+**Step 3: Open in browser**
+Navigate to the URL shown by Vite (typically http://localhost:5173)
 
-### Option 2: Manual Setup
-If you prefer to start components separately:
+All modalities work identically in the browser version.
 
-1. **Start the backend server:**
-   ```bash
-   cd server/
-   source .venv/bin/activate
-   python app.py
-   ```
-
-2. **Start the web app:**
-   ```bash
-   cd web/
-   npm run dev
-   ```
-
-3. **Launch Electron:**
-   ```bash
-   cd electron/
-   npm start
-   ```
-
-## Features Available in Desktop Mode
+## Features Available in Desktop/Browser Mode
 
 - ✅ **Text Capture**: Standard text input and editing
-- ✅ **Clipboard Preview**: Real-time polling of system clipboard
-- ✅ **Screenshot Capture**: Uses `grim` command (requires display server)
+- ✅ **Clipboard Preview**: Real-time polling of system clipboard via backend API
+- ✅ **Screenshot Capture**: Backend triggers `grim` command (requires display server)
 - ✅ **Audio Recording**: Microphone recording with waveform preview
 - ✅ **System Audio**: Separate system audio recording modality
 - ✅ **Entity-Based Storage**: Sources, context, and tags as natural language arrays
@@ -65,25 +101,30 @@ If you prefer to start components separately:
 ### Common Issues:
 
 1. **"ModuleNotFoundError: No module named 'fastapi'"**
-   - Solution: Activate the Python virtual environment and install dependencies
+   - Solution: Install backend dependencies
    ```bash
    cd server/
    source .venv/bin/activate
-   pip install -r requirements.txt
+   pip install fastapi uvicorn pyyaml python-multipart
    ```
 
-2. **"Missing X server or $DISPLAY"**
-   - This is expected in headless environments
-   - Screenshot functionality requires a graphical environment
-   - All other features work normally
+2. **"Missing X server or $DISPLAY" (Electron)**
+   - **Root Cause**: Electron requires graphical desktop environment
+   - **Solution**: Use web browser access instead, or run on desktop system
+   - Screenshot functionality also requires display server
 
-3. **"Port already in use"**
-   - The app will automatically find available ports
-   - Default ports: 5173 (web), 5174 (backend)
+3. **"Address already in use" (Port conflicts)**
+   - **Root Cause**: Previous server instances still running
+   - **Solution**: Kill existing processes or use different ports
+   ```bash
+   # Find and kill processes using ports
+   ps aux | grep -E "(python|node)" | grep -v grep
+   kill <process_id>
+   ```
 
-4. **Electron won't start**
-   - Ensure you're in the `electron/` directory
-   - Run `npm install` to install Electron dependencies
+4. **"socket hang up" (Proxy errors)**
+   - **Root Cause**: Backend server not running or port mismatch
+   - **Solution**: Ensure backend starts before web app, check port configuration
 
 ## File Structure
 
