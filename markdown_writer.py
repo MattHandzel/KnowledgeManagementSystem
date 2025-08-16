@@ -135,7 +135,7 @@ class SafeMarkdownWriter:
         if isinstance(context_data, str):
             context_entities = [context_data] if context_data else []
         elif isinstance(context_data, dict):
-            context_entities = [f"{k}: {v}" for k, v in context_data.items()]
+            context_entities = [v for v in context_data.values() if v]
         else:
             context_entities = []
 
@@ -161,7 +161,7 @@ class SafeMarkdownWriter:
             'aliases': [capture_id],
             'capture_id': capture_id,
             'modalities': capture_data.get('modalities', ['text']),
-            'context_entities': context_entities,
+            'context': context_entities,
             'source_entities': source_entities,
             'tag_entities': tag_entities,
             'location': capture_data.get('location'),
@@ -213,9 +213,9 @@ class SafeMarkdownWriter:
     
     def get_relative_media_path(self, media_path: str) -> str:
         """Convert absolute media path to relative path from capture directory."""
-        media_path = Path(media_path)
+        media_path_obj = Path(media_path)
         try:
-            relative_path = os.path.relpath(media_path, self.capture_dir)
+            relative_path = os.path.relpath(media_path_obj, self.capture_dir)
             return relative_path
         except ValueError:
             return str(media_path)
