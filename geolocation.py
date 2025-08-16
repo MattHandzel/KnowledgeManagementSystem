@@ -9,11 +9,11 @@ import json
 from typing import Optional, Dict, Any
 
 
-def get_device_location() -> Optional[Dict[str, Any]]:
+def get_device_location(timeout: float = 1.0) -> Optional[Dict[str, Any]]:
     """Get device location using IP-based geolocation."""
     try:
-        result = subprocess.run(['curl', '-s', 'http://ip-api.com/json/'], 
-                              capture_output=True, text=True, timeout=5)
+        result = subprocess.run(['curl', '-s', 'http://ip-api.com/json/'],
+                              capture_output=True, text=True, timeout=timeout)
         if result.returncode == 0:
             data = json.loads(result.stdout)
             if data.get('status') == 'success':

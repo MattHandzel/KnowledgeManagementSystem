@@ -119,16 +119,25 @@ class CaptureUI:
         self.stdscr.addstr(0, (width - len(title)) // 2, title, 
                           curses.color_pair(2) | curses.A_BOLD)
         
-        modalities_text = " ".join([
-            f"[{mod.upper()}]" if mod in self.active_modalities else f" {mod.upper()} "
-            for mod in self.available_modalities
-        ])
-        self.stdscr.addstr(1, 2, f"Mode: {modalities_text}")
+        mod_parts = []
+        for i, mod in enumerate(self.available_modalities):
+            label = mod.upper()
+            active = (mod in self.active_modalities)
+            selected = (self.active_field == Field.MODALITIES and i == self.modality_index)
+            part = f"[{label}]" if active else f" {label} "
+            if selected:
+                part = f">{part}<"
+            mod_parts.append(part)
+        modalities_text = " ".join(mod_parts)
+        mod_attr = curses.color_pair(1) | curses.A_BOLD if self.active_field == Field.MODALITIES else 0
+        self.stdscr.addstr(1, 2, "Mode:", mod_attr)
+        self.stdscr.addstr(1, 8, modalities_text, mod_attr)
         
         content_active = self.active_field == Field.CONTENT
         self.draw_field_border(2, 1, height - 10, width - 2, "Content", content_active)
         
-        context_y = height - 7
+        content_height = max(8, height - 12)
+        context_y = 3 + content_height + 1
         context_active = self.active_field == Field.CONTEXT
         self.stdscr.addstr(context_y, 2, "Context:", 
                           curses.color_pair(1) if context_active else 0)
@@ -745,7 +754,11 @@ class CaptureUI:
     def save_capture(self):
         """Save the current capture."""
         try:
-            location = get_device_location()
+            location = None
+            try:
+                location = get_device_location(timeout=0.5)
+            except Exception:
+                location = None
             
             capture_data = {
                 'timestamp': datetime.now(),
@@ -773,9 +786,9 @@ class CaptureUI:
             self.last_saved_file = str(result_file)
             
             try:
-                subprocess.run(['notify-send', '-t', '2000', '-u', 'normal', 
+                subprocess.Popen(['notify-send', '-t', '2000', '-u', 'normal', 
                               '-i', 'dialog-information', 'Capture Success', 
-                              f'Idea saved to {result_file.name}'], timeout=5)
+                              f'Idea saved to {result_file.name}'])
             except Exception:
                 pass
             if getattr(self, "stdscr", None):
@@ -783,7 +796,6 @@ class CaptureUI:
                     h, w = self.stdscr.getmaxyx()
                     self.stdscr.addstr(0, 0, f"Saved: {result_file.name}".ljust(max(1, w - 1)), curses.color_pair(3))
                     self.stdscr.refresh()
-                    curses.napms(800)
                 except Exception:
                     pass
             
@@ -797,16 +809,14 @@ class CaptureUI:
     def show_error(self, message: str):
         """Show error notification and on-screen message."""
         try:
-            subprocess.run(['notify-send', '-t', '2000', '-u', 'critical', 
-                          '-i', 'dialog-error', 'Capture Failure', message], 
-                         timeout=5)
+            subprocess.Popen(['notify-send', '-t', '2000', '-u', 'critical', 
+                          '-i', 'dialog-error', 'Capture Failure', message])
         except Exception:
             pass
         
         if self.stdscr:
             self.stdscr.addstr(0, 0, f"Error: {message}", curses.color_pair(4))
             self.stdscr.refresh()
-            curses.napms(2000)
     
     def enter_browse_mode(self):
         """Enter browse mode to view existing ideas."""
