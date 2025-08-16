@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import CaptureForm from './components/CaptureForm'
 import ModalityBar from './components/ModalityBar'
 import ClipboardPreview from './components/ClipboardPreview'
+import AudioRecorder from './components/AudioRecorder'
 import HelpOverlay from './components/HelpOverlay'
 
 type Config = {
@@ -47,7 +48,7 @@ const App: React.FC = () => {
     setModalities(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
   }
   const toggleModalityByIndex = (i: number) => {
-    const all = ['text','clipboard','screenshot','audio','files']
+    const all = ['text','clipboard','screenshot','audio','system-audio']
     if (i >= 0 && i < all.length) toggleModality(all[i])
   }
   const resetForm = () => {
@@ -65,23 +66,26 @@ const App: React.FC = () => {
   }
   const onScreenshot = async () => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
-      const track = stream.getVideoTracks()[0]
-      const imageCapture = new (window as any).ImageCapture(track)
-      const blob = await imageCapture.grabFrame().then((bitmap: ImageBitmap) => {
-        const canvas = document.createElement('canvas')
-        canvas.width = bitmap.width
-        canvas.height = bitmap.height
-        const ctx2 = canvas.getContext('2d')!
-        ctx2.drawImage(bitmap, 0, 0)
-        return new Promise<Blob>(res => canvas.toBlob(b => res(b as Blob), 'image/png'))
-      })
-      const file = new File([blob], `screenshot_${Date.now()}.png`, { type: 'image/png' })
-      setMediaFiles(prev => [...prev, file])
-      if (!modalities.includes('screenshot')) setModalities([...modalities, 'screenshot'])
-      track.stop()
-      stream.getTracks().forEach(t => t.stop())
-    } catch {}
+      const response = await fetch('/api/screenshot', { method: 'POST' })
+      const data = await response.json()
+      if (data.success) {
+        const file = new File([new Blob()], `screenshot_${Date.now()}.png`, { type: 'image/png' })
+        setMediaFiles(prev => [...prev, file])
+        if (!modalities.includes('screenshot')) setModalities([...modalities, 'screenshot'])
+      }
+    } catch (error) {
+      console.error('Screenshot failed:', error)
+    }
+  }
+
+  const onAudioReady = (file: File) => {
+    setMediaFiles(prev => [...prev, file])
+    if (!modalities.includes('audio')) setModalities([...modalities, 'audio'])
+  }
+
+  const onSystemAudioReady = (file: File) => {
+    setMediaFiles(prev => [...prev, file])
+    if (!modalities.includes('system-audio')) setModalities([...modalities, 'system-audio'])
   }
   const onSave = async () => {
     setSaving(true)
@@ -130,6 +134,22 @@ const App: React.FC = () => {
         onSave={onSave}
       />
       {modalities.includes('clipboard') && <ClipboardPreview intervalMs={pollMs} />}
+      {modalities.includes('audio') && (
+        <AudioRecorder 
+          onAudioReady={(file) => {
+            setMediaFiles(prev => [...prev, file])
+          }} 
+          systemAudio={false}
+        />
+      )}
+      {modalities.includes('system-audio') && (
+        <AudioRecorder 
+          onAudioReady={(file) => {
+            setMediaFiles(prev => [...prev, file])
+          }} 
+          systemAudio={true}
+        />
+      )}
       {help && <HelpOverlay onClose={() => setHelp(false)} />}
       {savedTo && <div className="saved">Saved to {savedTo}</div>}
     </div>

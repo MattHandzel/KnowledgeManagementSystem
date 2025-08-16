@@ -131,19 +131,43 @@ class SafeMarkdownWriter:
             timestamp_for_id = ts_input
         capture_id = capture_data.get('capture_id', self.generate_capture_id(timestamp_for_id))
         
+        context_data = capture_data.get('context', {})
+        if isinstance(context_data, str):
+            context_entities = [context_data] if context_data else []
+        elif isinstance(context_data, dict):
+            context_entities = [f"{k}: {v}" for k, v in context_data.items()]
+        else:
+            context_entities = []
+
+        sources_data = capture_data.get('sources', [])
+        if isinstance(sources_data, str):
+            source_entities = [src.strip() for src in sources_data.split(',') if src.strip()]
+        elif isinstance(sources_data, list):
+            source_entities = sources_data
+        else:
+            source_entities = []
+
+        tags_data = capture_data.get('tags', [])
+        if isinstance(tags_data, str):
+            tag_entities = [tag.strip() for tag in tags_data.split(',') if tag.strip()]
+        elif isinstance(tags_data, list):
+            tag_entities = tags_data
+        else:
+            tag_entities = []
+
         frontmatter = {
             'timestamp': iso_ts,
             'id': capture_id,
             'aliases': [capture_id],
             'capture_id': capture_id,
             'modalities': capture_data.get('modalities', ['text']),
-            'context': capture_data.get('context', {}),
-            'sources': capture_data.get('sources', []),
+            'context_entities': context_entities,
+            'source_entities': source_entities,
+            'tag_entities': tag_entities,
             'location': capture_data.get('location'),
             'metadata': capture_data.get('metadata', {}),
             'processing_status': 'raw',
             'importance': capture_data.get('importance', None),
-            'tags': capture_data.get('tags', []),
             'created_date': capture_data.get('created_date', timestamp_for_id.date().isoformat()),
             'last_edited_date': capture_data.get('last_edited_date', timestamp_for_id.date().isoformat()),
         }

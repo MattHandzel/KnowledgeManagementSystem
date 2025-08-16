@@ -31,8 +31,6 @@ const CaptureForm: React.FC<Props> = (p) => {
       </div>
       <label>Sources</label>
       <input value={p.sources} onChange={e => p.setSources(e.target.value)} placeholder="book: X, website: Y" />
-      <label>Attach files</label>
-      <input type="file" onChange={e => p.onFiles(e.target.files)} multiple />
       <div className="actions">
         <button onClick={p.onSave} disabled={p.saving}>{p.saving ? 'Saving...' : 'Save (Ctrl+S)'}</button>
       </div>

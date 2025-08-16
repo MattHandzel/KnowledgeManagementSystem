@@ -35,7 +35,7 @@ class CaptureUI:
         self.tags = ""
         self.sources = ""
         self.active_modalities = {"text"}
-        self.available_modalities = ["text", "clipboard", "screenshot", "audio", "files"]
+        self.available_modalities = ["text", "clipboard", "screenshot", "audio", "system-audio"]
         
         self.ui_mode = UIMode.INSERT
         self.idea_files = []
@@ -701,6 +701,34 @@ class CaptureUI:
         
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError, Exception):
             pass  # Ignore screenshot errors
+
+    def capture_audio(self, record_system=False):
+        """Capture audio recording with arecord or pactl for system audio."""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            audio_path = self.writer.media_dir / f"{timestamp}_{'system_' if record_system else ''}audio.wav"
+            
+            if record_system:
+                cmd = ['pactl', 'load-module', 'module-null-sink', 'sink_name=record']
+                subprocess.run(cmd, capture_output=True)
+                cmd = ['arecord', '-D', 'pulse', '-f', 'cd', str(audio_path)]
+            else:
+                cmd = ['arecord', '-f', 'cd', str(audio_path)]
+            
+            process = subprocess.Popen(cmd)
+            
+            if not hasattr(self.capture_data, 'media_files'):
+                self.capture_data['media_files'] = []
+            self.capture_data['media_files'].append({
+                'type': 'audio',
+                'path': str(audio_path),
+                'system_audio': record_system
+            })
+            
+            return process
+        except Exception:
+            pass
+        return None
     
     def save_capture(self):
         """Save the current capture."""

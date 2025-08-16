@@ -6,7 +6,7 @@ type Props = {
   onScreenshot: () => void
 }
 
-const all = ['text','clipboard','screenshot','audio','files']
+const all = ['text','clipboard','screenshot','audio','system-audio']
 
 const ModalityBar: React.FC<Props> = ({ modalities, onToggle, onScreenshot }) => {
   return (

@@ -8,8 +8,9 @@ const ClipboardPreview: React.FC<{ intervalMs: number }> = ({ intervalMs }) => {
     let t: any
     const read = async () => {
       try {
-        const s = await navigator.clipboard.readText()
-        if (mounted) setText(s || '')
+        const response = await fetch('/api/clipboard')
+        const data = await response.json()
+        if (mounted) setText(data.content || '')
       } catch {
         if (mounted) setText('')
       }

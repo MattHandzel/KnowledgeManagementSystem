@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import yaml
+import subprocess
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from markdown_writer import SafeMarkdownWriter
@@ -48,6 +49,37 @@ def api_config():
     cfg = normalize_config(load_config())
     return cfg
 
+@app.get("/api/clipboard")
+def api_clipboard():
+    """Get current clipboard content."""
+    try:
+        result = subprocess.run(['wl-paste', '-t', 'text'], 
+                              capture_output=True, text=True, timeout=2)
+        if result.returncode == 0:
+            return {"content": result.stdout, "type": "text"}
+        return {"content": "", "type": "text"}
+    except Exception:
+        return {"content": "", "type": "text"}
+
+@app.post("/api/screenshot")
+def api_screenshot():
+    """Trigger grim screenshot capture."""
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        cfg = normalize_config(load_config())
+        media_dir = Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"]
+        media_dir.mkdir(parents=True, exist_ok=True)
+        screenshot_path = media_dir / f"{timestamp}_screenshot.png"
+        
+        result = subprocess.run(['grim', str(screenshot_path)], 
+                              capture_output=True, timeout=10)
+        
+        if result.returncode == 0:
+            return {"path": str(screenshot_path), "success": True}
+        return {"success": False, "error": "Screenshot failed"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.post("/api/capture")
 async def api_capture(
     content: str = Form(""),
@@ -60,7 +92,7 @@ async def api_capture(
     media: Optional[List[UploadFile]] = File(None),
 ):
     cfg = normalize_config(load_config())
-    writer = SafeMarkdownWriter(Path(cfg["vault"]["path"]).expanduser())
+    writer = SafeMarkdownWriter(str(Path(cfg["vault"]["path"]).expanduser()))
     ts = datetime.now(timezone.utc)
     ts_str = ts.replace(microsecond=0).isoformat()
     cds = created_date or ts.date().isoformat()
