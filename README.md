@@ -23,6 +23,12 @@ A browser-based, terminal-style UI is available under `client/` that mimics the 
 - Package (Linux AppImage):
   - cd client
   - npm run electron:build
+- Optional: Client-only Nix shell
+  - cd client
+  - nix develop
+  - npm ci
+  - npm run app:dev
+
   - The artifact will be created under the client/dist directory (electron-builder output)
   - npm run preview
 
