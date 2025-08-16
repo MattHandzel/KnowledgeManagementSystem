@@ -15,6 +15,7 @@ ui:
   window_size: [80, 24]
   auto_focus_content: true
   show_help: false
+  clipboard_poll_ms: 200
 
 capture:
   auto_detect_modalities: true
@@ -24,6 +25,17 @@ capture:
   geolocation_enabled: true
   default_importance: 0.5
   max_content_length: 10000
+
+capture:
+  auto_detect_modalities: true
+  context_suggestions: true
+  tag_suggestions: true
+  sources_suggestions: true
+  geolocation_enabled: true
+  default_importance: 0.5
+  max_content_length: 10000
+  screenshot_tool: "grim"
+  screenshot_region_tool: "slurp"
 
 keybindings:
   save: "ctrl+s"

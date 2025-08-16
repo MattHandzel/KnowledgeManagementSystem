@@ -56,6 +56,7 @@ class CaptureUI:
         self.tags_win = None
         self.sources_win = None
         self.modalities_win = None
+        self.clipboard_win = None
         self.help_win = None
         self.idea_list_win = None
         self.active_field = Field.CONTENT
@@ -73,12 +74,20 @@ class CaptureUI:
             raise RuntimeError("No stdscr provided to initialize_ui")
         curses.curs_set(1)
         
-        curses.start_color()
-        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
-        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        try:
+            if curses.has_colors():
+                curses.start_color()
+                try:
+                    curses.use_default_colors()
+                except Exception:
+                    pass
+                curses.init_pair(1, curses.COLOR_CYAN, -1)
+                curses.init_pair(2, curses.COLOR_YELLOW, -1)
+                curses.init_pair(3, curses.COLOR_GREEN, -1)
+                curses.init_pair(4, curses.COLOR_RED, -1)
+                curses.init_pair(5, curses.COLOR_MAGENTA, -1)
+        except Exception:
+            pass
         
         self.create_windows()
         
@@ -91,7 +100,7 @@ class CaptureUI:
             raise RuntimeError("UI stdscr not initialized")
         height, width = self.stdscr.getmaxyx()
         
-        content_height = max(8, height - 12)
+        content_height = max(8, height - 16)
         self.content_win = curses.newwin(content_height, width - 4, 3, 2)
         
         context_y = 3 + content_height + 1
@@ -103,7 +112,10 @@ class CaptureUI:
         sources_y = tags_y + 1
         self.sources_win = curses.newwin(1, width - 20, sources_y, 10)
         
-        modalities_y = sources_y + 2
+        clip_y = sources_y + 2
+        self.clipboard_win = curses.newwin(3, width - 4, clip_y, 2)
+        
+        modalities_y = clip_y + 4
         self.modalities_win = curses.newwin(1, width - 4, modalities_y, 2)
         
         self.help_win = curses.newwin(height - 2, width - 4, 1, 2)
@@ -158,8 +170,10 @@ class CaptureUI:
         
         help_y = height - 2
         help_text = "Ctrl+S Save  ESC Cancel  Tab Next Field  F1 Help"
-        self.stdscr.addstr(help_y, (width - len(help_text)) // 2, help_text,
-                          curses.color_pair(5))
+        self.stdscr.addstr(help_y, (width - len(help_text)) // 2, help_text, curses.color_pair(5))
+        
+        if 'clipboard' in self.active_modalities:
+            self.draw_clipboard_preview()
         
         self.stdscr.refresh()
         
@@ -235,6 +249,37 @@ class CaptureUI:
         self.tags_win.addstr(0, 0, display_text)
         self.tags_win.refresh()
     
+    def draw_clipboard_preview(self):
+        if not self.clipboard_win:
+            return
+        try:
+            self.clipboard_win.clear()
+            height, width = self.clipboard_win.getmaxyx()
+            title = " Clipboard Preview "
+            try:
+                self.stdscr.addstr(self.clipboard_win.getbegyx()[0] - 1, 2, title, curses.color_pair(1) | curses.A_BOLD)
+            except Exception:
+                pass
+            preview_text = ""
+            try:
+                result = subprocess.run(['wl-paste', '-t', 'text'], capture_output=True, text=True, timeout=0.2)
+                if result.returncode == 0:
+                    preview_text = result.stdout.strip()
+            except Exception:
+                preview_text = ""
+            if not preview_text:
+                preview_text = "(clipboard empty)"
+            lines = preview_text.splitlines() or [preview_text]
+            max_lines = min(height, len(lines))
+            for i in range(max_lines):
+                line = lines[i]
+                if len(line) > width - 2:
+                    line = line[:max(0, width - 5)] + "..."
+                self.clipboard_win.addstr(i, 0, line)
+            self.clipboard_win.refresh()
+        except Exception:
+            pass
+
     def draw_sources(self):
         """Draw the sources field."""
         if not self.sources_win:
@@ -355,10 +400,8 @@ class CaptureUI:
         old_iflag = None
         try:
             if mode == "clipboard":
-                self.capture_clipboard_content()
                 self.active_modalities.add("clipboard")
             elif mode == "screenshot":
-                self.capture_screenshot()
                 self.active_modalities.add("screenshot")
             elif mode == "voice":
                 self.active_modalities = {"audio"}
@@ -387,6 +430,12 @@ class CaptureUI:
             self.draw_ui()
             
             try:
+                poll_ms = 200
+                try:
+                    poll_ms = int(self.config.get('ui', {}).get('clipboard_poll_ms', 200))
+                except Exception:
+                    poll_ms = 200
+                self.stdscr.timeout(poll_ms)
                 key = stdscr.getch()
                 
                 if self.help_visible:
@@ -747,14 +796,31 @@ class CaptureUI:
             pass  # Ignore clipboard errors
     
     def capture_screenshot(self):
-        """Capture screenshot."""
+        """Capture screenshot after ending curses to avoid capturing the UI."""
         try:
+            try:
+                curses.endwin()
+            except Exception:
+                pass
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
             screenshot_path = self.writer.media_dir / f"{timestamp}_screenshot.png"
-            
-            result = subprocess.run(['grim', str(screenshot_path)], 
-                                  capture_output=True, timeout=10)
-            
+            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+            region = None
+            try:
+                capture_cfg = self.config.get('capture', {})
+                slurp_cmd = capture_cfg.get('screenshot_region_tool', 'slurp')
+                sel = subprocess.run([slurp_cmd], capture_output=True, text=True, timeout=30)
+                if sel.returncode == 0 and sel.stdout.strip():
+                    region = sel.stdout.strip()
+            except Exception:
+                region = None
+            capture_cfg = self.config.get('capture', {})
+            grim_cmd = capture_cfg.get('screenshot_tool', 'grim')
+            slurp_cmd = capture_cfg.get('screenshot_region_tool', 'slurp')
+            if region:
+                result = subprocess.run([grim_cmd, '-g', region, str(screenshot_path)], capture_output=True, timeout=30)
+            else:
+                result = subprocess.run([grim_cmd, str(screenshot_path)], capture_output=True, timeout=30)
             if result.returncode == 0:
                 if 'media_files' not in self.capture_data:
                     self.capture_data['media_files'] = []
@@ -762,9 +828,8 @@ class CaptureUI:
                     'type': 'screenshot',
                     'path': str(screenshot_path)
                 })
-        
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, Exception):
-            pass  # Ignore screenshot errors
+        except Exception:
+            pass
     
     def save_capture(self):
         """Save the current capture."""

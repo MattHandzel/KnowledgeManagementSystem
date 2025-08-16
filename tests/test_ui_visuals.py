@@ -44,6 +44,10 @@ def test_context_tags_alignment(mock_curses):
     mock_curses.ACS_HLINE = 0
     mock_curses.ACS_VLINE = 0
     mock_curses.newwin.side_effect = newwin_factory()
+    mock_curses.has_colors.return_value = True
+    mock_curses.start_color.return_value = None
+    mock_curses.use_default_colors.return_value = None
+    mock_curses.init_pair.return_value = None
 
     stdscr = make_stdscr_mock(width=80, height=24)
     ui = CaptureUI({
@@ -80,6 +84,10 @@ def test_modality_selector_highlight_when_active(mock_curses):
     mock_curses.ACS_HLINE = 0
     mock_curses.ACS_VLINE = 0
     mock_curses.newwin.side_effect = newwin_factory()
+    mock_curses.has_colors.return_value = True
+    mock_curses.start_color.return_value = None
+    mock_curses.use_default_colors.return_value = None
+    mock_curses.init_pair.return_value = None
 
     stdscr = make_stdscr_mock(width=80, height=24)
     ui = CaptureUI({
