@@ -4,7 +4,7 @@ Ultra-lightweight, keyboard-driven knowledge capture system for NixOS and Hyprla
 
 ## Web App
 
-An informational, minimalistic React web app is available under `client/`. It presents the system’s features, architecture, and documentation links.
+A browser-based, terminal-style UI is available under `client/` that mimics the ncurses interface and keybindings. It runs locally, behaves like a desktop capture app, and saves captures by downloading a `.md` file that matches the daemon’s YAML + Markdown format.
 
 - Read-through: See docs/REPO_READTHROUGH.md
 - Local dev:
@@ -14,6 +14,16 @@ An informational, minimalistic React web app is available under `client/`. It pr
 - Build:
   - npm run build
   - npm run preview
+
+### Keybindings (client)
+- Ctrl+S: Save and download .md
+- ESC: Clear all fields
+- Tab / Shift+Tab: Switch field
+- F1: Toggle help
+- Ctrl+B: Browse mode
+- Ctrl+E: Edit selected idea from browse
+- 1–5: Toggle modalities (1=text 2=clipboard 3=screenshot 4=audio 5=files)
+- j/k: Navigate the idea list in browse mode
 
 ## Features
 
