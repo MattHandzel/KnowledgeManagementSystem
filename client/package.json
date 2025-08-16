@@ -3,10 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron ./electron/main.js",
+    "dev:wait": "node -e \"const http=require('http');const u=new URL(process.env.VITE_DEV_SERVER_URL||'http://localhost:5173');(function p(){http.get({host:u.hostname,port:u.port,path:'/'},res=>{if(res.statusCode===200){process.exit(0)}else setTimeout(p,300)}).on('error',()=>setTimeout(p,300))})()\"",
+    "dev:electron": "VITE_DEV_SERVER_URL=http://localhost:5173 npm run electron",
+    "app:dev": "npm run dev & sleep 1 && npm run dev:wait && npm run dev:electron",
+    "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -17,9 +23,29 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.3",
     "vite": "^5.4.1"
+  },
+  "build": {
+    "appId": "com.matthewhandzel.terminalcapture",
+    "productName": "Terminal Capture",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    }
   }
 }

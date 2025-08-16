@@ -13,6 +13,17 @@ A browser-based, terminal-style UI is available under `client/` that mimics the 
   - npm run dev
 - Build:
   - npm run build
+### Desktop App (Electron)
+- Nix shell: in repo root, run:
+  - nix develop
+- Dev run (Electron + Vite):
+  - cd client
+  - npm ci
+  - npm run app:dev
+- Package (Linux AppImage):
+  - cd client
+  - npm run electron:build
+  - The artifact will be created under the client/dist directory (electron-builder output)
   - npm run preview
 
 ### Keybindings (client)
