@@ -23,6 +23,7 @@
    cd electron/
    npm install
    ```
+   *This installs electron, concurrently, and electron-builder dependencies*
 
 3. **Install Python dependencies for the backend server:**
    ```bash
@@ -31,6 +32,17 @@
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    pip install fastapi uvicorn pyyaml python-multipart
    ```
+
+### 🔧 NixOS Users: Use shell.nix Environment
+
+For NixOS users, the repository includes a comprehensive `shell.nix` with all dependencies:
+
+```bash
+nix-shell
+# This provides: Node.js, npm, Python, FastAPI, Electron system libraries, and more
+cd electron/ && npm install
+cd server/ && python -m venv .venv && source .venv/bin/activate && pip install fastapi uvicorn pyyaml python-multipart
+```
 
 ## Running the Desktop Application
 
@@ -115,20 +127,29 @@ All modalities work identically in the browser version.
 
 ### Common Issues:
 
-1. **"ModuleNotFoundError: No module named 'fastapi'"**
-   - Solution: Install backend dependencies
+1. **"concurrently: not found" or "electron-builder: not found"**
+   - **Root Cause**: Missing npm dependencies in electron/package.json
+   - **Solution**: Install Electron dependencies
+   ```bash
+   cd electron/
+   npm install
+   ```
+
+2. **"ModuleNotFoundError: No module named 'fastapi'"**
+   - **Root Cause**: Python backend dependencies not installed in virtual environment
+   - **Solution**: Install backend dependencies
    ```bash
    cd server/
    source .venv/bin/activate
    pip install fastapi uvicorn pyyaml python-multipart
    ```
 
-2. **"Missing X server or $DISPLAY" (Electron)**
+3. **"Missing X server or $DISPLAY" (Electron)**
    - **Root Cause**: Electron requires graphical desktop environment
    - **Solution**: Use web browser access instead, or run on desktop system
    - Screenshot functionality also requires display server
 
-3. **"Address already in use" (Port conflicts)**
+4. **"Address already in use" (Port conflicts)**
    - **Root Cause**: Previous server instances still running
    - **Solution**: Kill existing processes or use different ports
    ```bash
