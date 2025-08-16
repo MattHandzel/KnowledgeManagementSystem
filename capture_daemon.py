@@ -63,6 +63,7 @@ class CaptureUI:
         self.keybindings = None
         
         self.capture_data = {}
+        self.last_saved_file = None
     
     def initialize_ui(self, stdscr):
         """Initialize the ncurses interface."""
@@ -769,6 +770,7 @@ class CaptureUI:
                 capture_data['media_files'] = self.capture_data['media_files']
             
             result_file = self.writer.write_capture(capture_data)
+            self.last_saved_file = str(result_file)
             
             try:
                 subprocess.run(['notify-send', '-t', '2000', '-u', 'normal', 
@@ -1040,14 +1042,28 @@ def main():
         
         daemon.start()
     else:
-        config = {
-            'vault': {'path': args.vault_path or '~/notes', 'capture_dir': 'capture/raw_capture', 'media_dir': 'capture/raw_capture/media'},
-            'daemon': {'socket_path': args.socket_path or '/tmp/capture_daemon.sock'},
-            'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True, 'show_help': True}
-        }
+        config_path = args.config or str((Path(__file__).parent / "config.yaml"))
+        try:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception:
+            config = {
+                'vault': {'path': '~/notes', 'capture_dir': 'capture/raw_capture', 'media_dir': 'capture/raw_capture/media'},
+                'daemon': {'socket_path': '/tmp/capture_daemon.sock'},
+                'ui': {'theme': 'default', 'window_size': [80, 24], 'auto_focus_content': True, 'show_help': True}
+            }
+        if args.vault_path:
+            config['vault']['path'] = args.vault_path
+        if args.socket_path:
+            config.setdefault('daemon', {})['socket_path'] = args.socket_path
         
         ui = CaptureUI(config)
         success = ui.run_capture(args.mode)
+        try:
+            if getattr(ui, "last_saved_file", None):
+                print(f"Saved to: {Path(ui.last_saved_file).expanduser().resolve()}")
+        except Exception:
+            pass
         sys.exit(0 if success else 1)
 
 
