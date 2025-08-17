@@ -1,5 +1,5 @@
 {
-  description = "Terminal-based knowledge capture daemon for NixOS + Hyprland";
+  description = "Knowledge Management System - Electron Desktop App";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -11,70 +11,139 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
-        capture-daemon = pkgs.python3Packages.buildPythonApplication {
-          pname = "capture-daemon";
+        # Build the React frontend
+        web-frontend = pkgs.buildNpmPackage {
+          pname = "kms-web-frontend";
           version = "0.1.0";
+          
+          src = ./web;
+          
+          npmDepsHash = "sha256-2W1PTK281uXTKTXcjC4Swt367WTHp7g3ehdJt8nqCRA=";
+          
+          buildPhase = ''
+            npm run build
+          '';
+          
+          installPhase = ''
+            mkdir -p $out
+            cp -r dist/* $out/
+          '';
+        };
+        
+        # Main Electron application
+        kms-electron = pkgs.stdenv.mkDerivation {
+          pname = "knowledge-management-system";
+          version = "1.0.0";
           
           src = ./.;
           
-          propagatedBuildInputs = with pkgs.python3Packages; [
-            pyyaml
-            watchdog
+          nativeBuildInputs = with pkgs; [
+            python3
+            python3Packages.pip
+            python3Packages.setuptools
+            makeWrapper
           ];
           
           buildInputs = with pkgs; [
-            ncurses
+            # Python backend dependencies
+            python3Packages.fastapi
+            python3Packages.uvicorn
+            python3Packages.pyyaml
+            python3Packages.python-multipart
+            
+            # Use Nix's pre-built Electron
+            electron
+            
+            # Electron system libraries
+            xorg.libX11
+            xorg.libXext
+            xorg.libXrandr
+            xorg.libXrender
+            xorg.libXtst
+            xorg.libXScrnSaver
+            xorg.libxkbfile
+            xorg.libXi
+            gtk3
+            glib
+            nss
+            nspr
+            atk
+            at-spi2-atk
+            cups
+            libdrm
+            libxkbcommon
+            mesa
+            expat
+            xorg.libxshmfence
+            alsa-lib
+            at-spi2-core
+            dbus
+            
+            # Capture tools for functionality
+            grim
+            slurp
+            wl-clipboard
+            wf-recorder
+            alsa-utils
           ];
           
-          # Runtime dependencies for capture functionality
-          makeWrapperArgs = [
-            "--prefix PATH : ${pkgs.lib.makeBinPath [
-              pkgs.grim          # Screenshots
-              pkgs.slurp         # Screen selection
-              pkgs.wl-clipboard  # Clipboard access
-              pkgs.wf-recorder   # Screen recording
-              pkgs.alsa-utils    # Audio recording
-            ]}"
-          ];
+          buildPhase = ''
+            # No build phase needed - we'll copy files directly
+          '';
           
-          # Install scripts
           installPhase = ''
             mkdir -p $out/bin
-            mkdir -p $out/lib/python${pkgs.python3.pythonVersion}/site-packages/capture_daemon
+            mkdir -p $out/lib/kms-electron
             
-            # Copy Python modules
-            cp *.py $out/lib/python${pkgs.python3.pythonVersion}/site-packages/capture_daemon/
+            # Copy electron app files (main.js, package.json)
+            cp -r electron $out/lib/kms-electron/
             
-            # Create executable scripts
-            cat > $out/bin/capture-daemon << EOF
-            #!${pkgs.python3}/bin/python3
-            import sys
-            sys.path.insert(0, '$out/lib/python${pkgs.python3.pythonVersion}/site-packages')
-            from capture_daemon.capture_daemon import main
-            if __name__ == '__main__':
-                main()
-            EOF
+            # Copy server backend
+            cp -r server $out/lib/kms-electron/
             
-            cat > $out/bin/trigger-capture << EOF
-            #!${pkgs.python3}/bin/python3
-            import sys
-            sys.path.insert(0, '$out/lib/python${pkgs.python3.pythonVersion}/site-packages')
-            from capture_daemon.trigger_capture import main
-            if __name__ == '__main__':
-                main()
-            EOF
-            
-            chmod +x $out/bin/capture-daemon
-            chmod +x $out/bin/trigger-capture
+            # Copy built web frontend
+            mkdir -p $out/lib/kms-electron/web
+            cp -r ${web-frontend} $out/lib/kms-electron/web/dist
             
             # Copy config
-            mkdir -p $out/share/capture-daemon
-            cp config.yaml $out/share/capture-daemon/
+            cp config.yaml $out/lib/kms-electron/
+            
+            # Create wrapper script that uses Nix's Electron
+            makeWrapper ${pkgs.electron}/bin/electron $out/bin/kms-electron \
+              --chdir $out/lib/kms-electron/electron \
+              --set ELECTRON_DISABLE_SANDBOX 1 \
+              --prefix PYTHONPATH : "$out/lib/kms-electron/server:$out/lib/kms-electron" \
+              --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath [
+                pkgs.xorg.libX11
+                pkgs.xorg.libXext
+                pkgs.xorg.libXrandr
+                pkgs.xorg.libXrender
+                pkgs.xorg.libXtst
+                pkgs.xorg.libXScrnSaver
+                pkgs.xorg.libxkbfile
+                pkgs.xorg.libXi
+                pkgs.gtk3
+                pkgs.glib
+                pkgs.nss
+                pkgs.nspr
+                pkgs.atk
+                pkgs.at-spi2-atk
+                pkgs.cups
+                pkgs.libdrm
+                pkgs.libxkbcommon
+                pkgs.mesa
+                pkgs.expat
+                pkgs.xorg.libxshmfence
+                pkgs.alsa-lib
+                pkgs.at-spi2-core
+                pkgs.dbus
+              ]}" \
+              --add-flags "."
           '';
           
           meta = with pkgs.lib; {
-            description = "Ultra-lightweight terminal-based knowledge capture daemon";
-            homepage = "https://github.com/MattHandzel/capture-daemon";
+            description = "Knowledge Management System - Electron Desktop App";
+            homepage = "https://github.com/MattHandzel/KnowledgeManagementSystem";
             license = licenses.mit;
             maintainers = [ "MattHandzel" ];
             platforms = platforms.linux;
@@ -82,100 +151,139 @@
         };
         
       in {
-        # Development shell
+        # Development shell (keep existing shell.nix functionality)
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Core dependencies
             python3
+            python3Packages.fastapi
+            python3Packages.uvicorn
             python3Packages.pyyaml
-            python3Packages.watchdog
+            python3Packages.python-multipart
             
-            # Terminal UI
-            ncurses
+            # Node.js and Electron dependencies
+            nodejs
+            yarn
+            npm
+            
+            # Electron system libraries (from shell.nix)
+            xorg.libX11
+            xorg.libXext
+            xorg.libXrandr
+            xorg.libXrender
+            xorg.libXtst
+            xorg.libXScrnSaver
+            xorg.libxkbfile
+            xorg.libXi
+            gtk3
+            glib
+            nss
+            nspr
+            atk
+            at-spi2-atk
+            cups
+            libdrm
+            libxkbcommon
+            mesa
+            expat
+            xorg.libxshmfence
+            alsa-lib
+            at-spi2-core
+            dbus
             
             # Capture tools
-            grim          # Screenshots
-            slurp         # Screen selection  
-            wl-clipboard  # Clipboard access
-            wf-recorder   # Screen recording
-            alsa-utils    # Audio recording (arecord)
+            grim
+            slurp
+            wl-clipboard
+            wf-recorder
+            alsa-utils
             
             # Development tools
             python3Packages.pytest
-            python3Packages.pytest-mock
             python3Packages.black
             python3Packages.flake8
             python3Packages.mypy
-            
-            # Nix tools
             nixpkgs-fmt
           ];
           
           shellHook = ''
-            echo "🚀 Terminal Capture Daemon Development Environment"
+            echo "🚀 Knowledge Management System - Electron Development Environment"
             echo ""
             echo "Available commands:"
-            echo "  python capture_daemon.py --daemon    # Start daemon"
-            echo "  python trigger_capture.py quick      # Test trigger"
-            echo "  pytest tests/                        # Run tests"
-            echo "  black *.py                           # Format code"
-            echo "  flake8 *.py                          # Lint code"
+            echo "  cd server && python app.py           # Start backend"
+            echo "  cd web && npm run dev                # Start frontend"
+            echo "  cd electron && npm install && npm start  # Launch Electron app"
             echo ""
-            echo "Hyprland keybind examples:"
-            echo "  bind = SUPER, C, exec, python ${toString ./.}/trigger_capture.py quick"
-            echo "  bind = SUPER SHIFT, C, exec, python ${toString ./.}/trigger_capture.py multimodal"
+            echo "Build commands:"
+            echo "  nix build                            # Build Electron package"
+            echo "  nix run                              # Run built Electron app"
             echo ""
             
             # Create required directories
             mkdir -p ~/notes/capture/raw_capture/media
             
-            # Set up socket directory
-            mkdir -p /tmp/capture_daemon
+            # Set up environment variables for Electron
+            export PYTHONPATH="$(pwd):$PYTHONPATH"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
+              pkgs.xorg.libX11
+              pkgs.xorg.libXext
+              pkgs.xorg.libXrandr
+              pkgs.xorg.libXrender
+              pkgs.xorg.libXtst
+              pkgs.xorg.libXScrnSaver
+              pkgs.xorg.libxkbfile
+              pkgs.xorg.libXi
+              pkgs.gtk3
+              pkgs.glib
+              pkgs.nss
+              pkgs.nspr
+              pkgs.atk
+              pkgs.at-spi2-atk
+              pkgs.cups
+              pkgs.libdrm
+              pkgs.libxkbcommon
+              pkgs.mesa
+              pkgs.expat
+              pkgs.xorg.libxshmfence
+              pkgs.alsa-lib
+              pkgs.at-spi2-core
+              pkgs.dbus
+            ]}:$LD_LIBRARY_PATH"
             
-            # Make scripts executable
-            chmod +x *.py
-            
-            export PYTHONPATH="${toString ./.}:$PYTHONPATH"
+            # Electron sandboxing fixes
+            export ELECTRON_DISABLE_SANDBOX=1
+            export ELECTRON_RUN_AS_NODE=0
           '';
         };
         
-        # Package output
+        # Package outputs
         packages = {
-          default = capture-daemon;
-          capture-daemon = capture-daemon;
+          default = kms-electron;
+          kms-electron = kms-electron;
+          web-frontend = web-frontend;
         };
         
         # App for easy running
         apps = {
           default = {
             type = "app";
-            program = "${capture-daemon}/bin/capture-daemon";
-          };
-          
-          daemon = {
-            type = "app";
-            program = "${capture-daemon}/bin/capture-daemon";
-          };
-          
-          trigger = {
-            type = "app";
-            program = "${capture-daemon}/bin/trigger-capture";
+            program = "${kms-electron}/bin/kms-electron";
           };
         };
         
         # NixOS module for system integration
-        nixosModules.capture-daemon = { config, lib, pkgs, ... }:
+        nixosModules.kms-electron = { config, lib, pkgs, ... }:
           with lib;
           let
-            cfg = config.services.capture-daemon;
+            cfg = config.services.kms-electron;
           in {
-            options.services.capture-daemon = {
-              enable = mkEnableOption "Terminal capture daemon";
+            options.services.kms-electron = {
+              enable = mkEnableOption "Knowledge Management System Electron App";
               
               user = mkOption {
                 type = types.str;
                 default = "user";
-                description = "User to run the capture daemon as";
+                description = "User to install the app for";
               };
               
               vaultPath = mkOption {
@@ -183,44 +291,15 @@
                 default = "/home/${cfg.user}/notes";
                 description = "Path to the notes vault";
               };
-              
-              socketPath = mkOption {
-                type = types.str;
-                default = "/tmp/capture_daemon.sock";
-                description = "Unix socket path for daemon communication";
-              };
-              
-              autoStart = mkOption {
-                type = types.bool;
-                default = true;
-                description = "Whether to auto-start the daemon";
-              };
             };
             
             config = mkIf cfg.enable {
-              systemd.user.services.capture-daemon = {
-                description = "Terminal Knowledge Capture Daemon";
-                wantedBy = mkIf cfg.autoStart [ "default.target" ];
-                
-                serviceConfig = {
-                  Type = "simple";
-                  ExecStart = "${capture-daemon}/bin/capture-daemon --daemon --vault-path=${cfg.vaultPath} --socket-path=${cfg.socketPath}";
-                  Restart = "on-failure";
-                  RestartSec = 5;
-                };
-                
-                environment = {
-                  PATH = lib.makeBinPath [
-                    pkgs.grim
-                    pkgs.slurp
-                    pkgs.wl-clipboard
-                    pkgs.wf-recorder
-                    pkgs.alsa-utils
-                  ];
-                };
-              };
+              environment.systemPackages = [ kms-electron ];
               
-              environment.systemPackages = [ capture-daemon ];
+              # Ensure required directories exist
+              systemd.tmpfiles.rules = [
+                "d ${cfg.vaultPath}/capture/raw_capture/media 0755 ${cfg.user} users -"
+              ];
             };
           };
       });
