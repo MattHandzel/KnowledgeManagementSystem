@@ -145,7 +145,7 @@
         '';
 
         meta = with pkgs.lib; {
-          description = "Knowledge Management System - Electron Desktop App";
+          description = "Knowledge Management System - Capture";
           homepage = "https://github.com/MattHandzel/KnowledgeManagementSystem";
           license = licenses.mit;
           maintainers = ["MattHandzel"];
