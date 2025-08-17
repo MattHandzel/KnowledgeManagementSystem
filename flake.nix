@@ -53,6 +53,7 @@
           python3Packages.uvicorn
           python3Packages.pyyaml
           python3Packages.python-multipart
+          python3Packages.typing-extensions
 
           # Use Nix's pre-built Electron
           electron
@@ -162,6 +163,7 @@
           python3Packages.uvicorn
           python3Packages.pyyaml
           python3Packages.python-multipart
+          python3Packages.typing-extensions
 
           # Node.js and Electron dependencies
           nodejs
