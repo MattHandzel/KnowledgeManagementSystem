@@ -97,6 +97,14 @@ async def api_capture(
         "created_date": cds,
         "last_edited_date": les,
     }
+
+    has_text = "text" in capture["modalities"] and bool((capture["content"] or "").strip())
+    has_media = bool(capture["media_files"])
+    has_clipboard = bool(capture.get("clipboard", ""))
+
+    if not capture["modalities"] or not (has_text or has_media or has_clipboard):
+        return JSONResponse({"error": "Nothing to save: select a modality or provide content"}, status_code=400)
+
     p = writer.write_capture(capture)
     return JSONResponse({"saved_to": str(p)})
 
