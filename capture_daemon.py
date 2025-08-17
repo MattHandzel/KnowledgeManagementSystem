@@ -705,8 +705,29 @@ class CaptureUI:
     def save_capture(self):
         """Save the current capture."""
         try:
+            active = set(self.active_modalities)
+            if not active:
+                self.show_error("Nothing to save: no modality selected")
+                return
+
+            text_has_content = bool(self.content.strip())
+
+            has_clipboard = bool(self.capture_data.get('clipboard', '').strip())
+            has_media = bool(self.capture_data.get('media_files'))
+
+            if 'clipboard' in active and not has_clipboard:
+                self.capture_clipboard_content()
+                has_clipboard = bool(self.capture_data.get('clipboard', '').strip())
+
+            if 'screenshot' in active and not has_media:
+                self.capture_screenshot()
+                has_media = bool(self.capture_data.get('media_files'))
+
+            if not (text_has_content or has_clipboard or has_media):
+                self.show_error("Nothing to save: provide content or captured data")
+                return
+
             location = get_device_location()
-            
             capture_data = {
                 'timestamp': datetime.now(),
                 'content': self.content.strip(),
@@ -717,27 +738,22 @@ class CaptureUI:
                 'modalities': list(self.active_modalities),
                 **self.capture_data
             }
-            
-            if 'clipboard' in self.active_modalities:
-                self.capture_clipboard_content()
-                if 'clipboard' in self.capture_data:
-                    capture_data['clipboard'] = self.capture_data['clipboard']
-            
-            if 'screenshot' in self.active_modalities:
-                self.capture_screenshot()
-            
+
+            if 'clipboard' in active and 'clipboard' in self.capture_data:
+                capture_data['clipboard'] = self.capture_data['clipboard']
+
             if 'media_files' in self.capture_data:
                 capture_data['media_files'] = self.capture_data['media_files']
-            
+
             result_file = self.writer.write_capture(capture_data)
-            
+
             try:
-                subprocess.run(['notify-send', '-t', '2000', '-u', 'normal', 
-                              '-i', 'dialog-information', 'Capture Success', 
+                subprocess.run(['notify-send', '-t', '2000', '-u', 'normal',
+                              '-i', 'dialog-information', 'Capture Success',
                               f'Idea saved to {result_file.name}'], timeout=5)
             except Exception:
                 pass
-            
+
         except Exception as e:
             self.show_error(f"Error saving: {e}")
     
