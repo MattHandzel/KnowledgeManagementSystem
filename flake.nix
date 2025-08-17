@@ -50,7 +50,7 @@
         buildInputs = with pkgs; [
           # Python backend dependencies
           python3Packages.fastapi
-          python3Packages.uvicorn
+          python3Packages.hypercorn
           python3Packages.pyyaml
           python3Packages.python-multipart
           python3Packages.typing-extensions
@@ -160,7 +160,7 @@
           # Core dependencies
           python3
           python3Packages.fastapi
-          python3Packages.uvicorn
+          python3Packages.hypercorn
           python3Packages.pyyaml
           python3Packages.python-multipart
           python3Packages.typing-extensions

@@ -7,7 +7,10 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uvicorn
+import threading
+import asyncio
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 import yaml
 import subprocess
 
@@ -160,4 +163,8 @@ async def api_capture(
     return JSONResponse({"saved_to": str(p)})
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=int(os.environ.get("PORT", "7123")), reload=True)
+    config = Config()
+    config.bind = [f"0.0.0.0:{int(os.environ.get('PORT', '7123'))}"]
+    config.use_reloader = False
+    config.accesslog = "-"
+    asyncio.run(serve(app, config))
