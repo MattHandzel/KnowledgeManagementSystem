@@ -23,6 +23,8 @@ const App: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [savedTo, setSavedTo] = useState<string | null>(null)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
+  const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
@@ -44,6 +46,10 @@ const App: React.FC = () => {
         e.preventDefault()
         setMode('context')
       }
+      if (e.key.toLowerCase() === 't' && mode === 'normal') {
+        e.preventDefault()
+        setTheme(theme === 'light' ? 'dark' : 'light')
+      }
       if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
@@ -54,7 +60,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [modalities, mode])
+  }, [modalities, mode, theme])
 
   const toggleModality = (m: string) => {
     setModalities(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
@@ -124,9 +130,9 @@ const App: React.FC = () => {
       fd.append('created_date', d)
       fd.append('last_edited_date', d)
       mediaFiles.forEach(f => {
-        if (f.path && f.type) {
-          fd.append('screenshot_path', f.path)
-          fd.append('screenshot_type', f.type)
+        if ((f as any).path && (f as any).type) {
+          fd.append('screenshot_path', (f as any).path)
+          fd.append('screenshot_type', (f as any).type)
         } else {
           fd.append('media', f, f.name)
         }
@@ -134,11 +140,14 @@ const App: React.FC = () => {
       const r = await fetch('/api/capture', { method: 'POST', body: fd })
       const j = await r.json()
       setSavedTo(j.saved_to || null)
+      setPopup({ type: 'success', message: `Saved to: ${j.saved_to}` })
       resetForm()
       if (j.saved_to) {
         setTimeout(() => setSavedTo(null), 4000)
       }
-    } catch {
+    } catch (error) {
+      console.error('Save failed:', error)
+      setPopup({ type: 'error', message: `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}` })
       setSavedTo(null)
     } finally {
       setSaving(false)
@@ -146,6 +155,17 @@ const App: React.FC = () => {
   }
 
   const pollMs = config?.ui?.clipboard_poll_ms || 200
+
+  useEffect(() => {
+    if (popup) {
+      const timer = setTimeout(() => setPopup(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [popup])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
 
   return (
     <div className="container">
@@ -179,6 +199,11 @@ const App: React.FC = () => {
       )}
       {help && <HelpOverlay onClose={() => setHelp(false)} />}
       {savedTo && <div className="saved">Saved to {savedTo}</div>}
+      {popup && (
+        <div className={`popup ${popup.type}`} onClick={() => setPopup(null)}>
+          {popup.message}
+        </div>
+      )}
     </div>
   )
 }

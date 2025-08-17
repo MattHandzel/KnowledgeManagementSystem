@@ -1,14 +1,18 @@
 import React, { useState, KeyboardEvent } from 'react'
+import SuggestionDropdown from './SuggestionDropdown'
 
 type Props = {
   value: string
   onChange: (value: string) => void
   placeholder: string
   label: string
+  fieldType: 'tag' | 'source'
 }
 
-const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label }) => {
+const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fieldType }) => {
   const [inputValue, setInputValue] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [inputColor, setInputColor] = useState('')
   
   const entities = value ? value.split(',').map(s => s.trim()).filter(s => s) : []
   
@@ -27,6 +31,30 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label }) =
       const newEntities = [...entities, trimmed]
       onChange(newEntities.join(', '))
       setInputValue('')
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setInputValue(newValue)
+    setShowSuggestions(newValue.trim().length > 0)
+    
+    if (newValue.trim()) {
+      checkValueExists(newValue.trim())
+    } else {
+      setInputColor('')
+    }
+  }
+
+  const checkValueExists = async (value: string) => {
+    try {
+      const response = await fetch(`/api/suggestion-exists/${fieldType}?value=${encodeURIComponent(value)}`)
+      const data = await response.json()
+      setInputColor(data.exists ? 'var(--text-muted)' : '')
+    } catch (error) {
+      console.error('Failed to check suggestion existence:', error)
+      setInputColor('')
     }
   }
   
@@ -51,15 +79,32 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label }) =
             </button>
           </span>
         ))}
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={addEntity}
-          placeholder={entities.length === 0 ? placeholder : ''}
-          className="chip-input"
-        />
+        <div className="chip-input-container">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onBlur={() => {
+              setTimeout(() => setShowSuggestions(false), 200)
+              addEntity()
+            }}
+            onFocus={() => inputValue.trim() && setShowSuggestions(true)}
+            placeholder={entities.length === 0 ? placeholder : ''}
+            className="chip-input"
+            style={{ color: inputColor }}
+          />
+          <SuggestionDropdown
+            fieldType={fieldType}
+            query={inputValue}
+            onSelect={(value) => {
+              setInputValue(value)
+              addEntity()
+            }}
+            visible={showSuggestions}
+            onClose={() => setShowSuggestions(false)}
+          />
+        </div>
       </div>
     </div>
   )
