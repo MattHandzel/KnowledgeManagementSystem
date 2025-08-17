@@ -109,7 +109,7 @@
           cp -r server $out/lib/kms-electron/
 
           # Copy markdown_writer.py (required by server/app.py)
-          cp markdown_writer.py $out/lib/kms-electron/
+          cp server/markdown_writer.py $out/lib/kms-electron/
 
           # Copy pre-built web frontend from the web-frontend derivation
           mkdir -p $out/lib/kms-electron/web/dist
