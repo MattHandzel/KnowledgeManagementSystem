@@ -182,7 +182,6 @@ class SafeMarkdownWriter:
             "location": capture_data.get("location"),
             "metadata": capture_data.get("metadata", {}),
             "processing_status": "raw",
-            "importance": capture_data.get("importance", None),
             "created_date": capture_data.get(
                 "created_date", timestamp_for_id.date().isoformat()
             ),

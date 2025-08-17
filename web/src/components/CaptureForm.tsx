@@ -78,7 +78,6 @@ const CaptureForm: React.FC<Props> = (p) => {
 
   return (
     <div className="form">
-      <label>Content</label>
       <textarea value={p.content} onChange={e => p.setContent(e.target.value)} rows={10} />
       <div className="context-input-container">
         <input 
@@ -86,7 +85,7 @@ const CaptureForm: React.FC<Props> = (p) => {
           onChange={handleContextChange}
           onFocus={() => p.context.trim() && setShowContextSuggestions(true)}
           onBlur={() => setTimeout(() => setShowContextSuggestions(false), 200)}
-          placeholder="Context (key: value, or YAML)"
+          placeholder="Context"
           className={p.mode === 'context' ? 'context-focused' : ''}
           style={{ color: contextColor }}
         />
@@ -113,9 +112,6 @@ const CaptureForm: React.FC<Props> = (p) => {
           label=""
           fieldType="source"
         />
-      </div>
-      <div className="actions">
-        <button onClick={p.onSave} disabled={p.saving}>{p.saving ? 'Saving...' : 'Save (Ctrl+S)'}</button>
       </div>
     </div>
   )

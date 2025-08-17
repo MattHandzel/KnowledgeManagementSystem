@@ -17,7 +17,7 @@ import subprocess
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from markdown_writer import SafeMarkdownWriter
 from geolocation import get_device_location
-from suggestion_db import SuggestionDatabase
+from main_db import MainDatabase
 
 app = FastAPI()
 app.add_middleware(
@@ -28,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-suggestion_db = SuggestionDatabase("suggestions.db")
+main_db = MainDatabase("main.db")
 
 def load_config():
     cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
@@ -175,7 +175,7 @@ async def api_capture(
     
     p = writer.write_capture(capture)
     
-    suggestion_db.store_capture_data(capture)
+    main_db.store_capture_data(capture)
     
     return JSONResponse({"saved_to": str(p)})
 
@@ -186,7 +186,7 @@ def api_suggestions(field_type: str, query: str = "", limit: int = 10):
     if field_type not in ['tag', 'source', 'context']:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
     
-    suggestions = suggestion_db.get_suggestions(field_type, query, limit)
+    suggestions = main_db.get_suggestions(field_type, query, limit)
     return {
         "suggestions": [
             {
@@ -206,7 +206,7 @@ def api_suggestion_exists(field_type: str, value: str):
     if field_type not in ['tag', 'source', 'context']:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
     
-    exists = suggestion_db.suggestion_exists(value, field_type)
+    exists = main_db.suggestion_exists(value, field_type)
     return {"exists": exists}
 
 
