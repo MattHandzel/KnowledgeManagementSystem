@@ -1,7 +1,7 @@
-Knowledge Management System (Terminal + Web)
+Knowledge Management System
 
 React Web App (new)
-A new React web app provides the same capture functionality as the terminal UI, with a small Python FastAPI backend that reuses the existing SafeMarkdownWriter to produce markdown files in your configured vault.
+A React web app with a Python FastAPI backend that uses SafeMarkdownWriter to produce markdown files in your configured vault.
 
 What’s included
 
@@ -55,113 +55,42 @@ Notes
 
 - Clipboard preview requires clipboard permission in the browser. If the preview is empty, click the page and try again.
 - Screenshot capture uses browser APIs; depending on the browser, a picker is shown to choose the screen/window to capture.
-- The terminal app remains unchanged and continues to work as before.
 
-# Terminal Capture Daemon
+## Electron Desktop App
 
-Ultra-lightweight, keyboard-driven knowledge capture system for NixOS and Hyprland. Provides instant popup capture interface with semantic keybindings and stores individual ideas as markdown files.
-
-## Features
-
-- **Instant Response**: Background daemon with Unix socket communication
-- **Terminal UI**: ncurses-based interface with semantic keybindings
-- **Individual Ideas**: Each capture stored as separate markdown file
-- **Multimodal**: Text, clipboard, screenshot, audio, and file capture
-- **File Safety**: Atomic operations with unique filename generation
-- **Reversible**: Pure markdown with YAML frontmatter, Obsidian compatible
-- **NixOS Ready**: Flake-based development and deployment
-
-## Quick Start
+The Knowledge Management System is available as an Electron desktop application that combines the React frontend with the FastAPI backend in a single package.
 
 ### Development Setup
 
 ```bash
 # Clone and enter directory
-cd capture_daemon
+cd KnowledgeManagementSystem
 
 # Enter development shell (requires Nix)
 nix develop
 
-# Test the markdown writer
-python markdown_writer.py
+# Start backend server
+cd server && python app.py
 
-# Start daemon
-python capture_daemon.py --daemon
+# Start frontend (in another terminal)
+cd web && npm run dev
 
-# Test trigger (in another terminal)
-python trigger_capture.py quick
+# Launch Electron app (in another terminal)
+cd electron && npm install && npm start
 ```
 
-### Hyprland Integration
+### Building Package
 
-Add to your `~/.config/hypr/hyprland.conf`:
+```bash
+# Build with nix
+nix build
 
-```conf
-# Capture keybinds
-bind = SUPER, C, exec, python /path/to/capture_daemon/trigger_capture.py quick
-bind = SUPER SHIFT, C, exec, python /path/to/capture_daemon/trigger_capture.py multimodal
-bind = SUPER ALT, C, exec, python /path/to/capture_daemon/trigger_capture.py voice
-bind = SUPER CTRL, C, exec, python /path/to/capture_daemon/trigger_capture.py screenshot
+# Install to system
+nix profile install .
 
-# Window rules for capture popup
-windowrulev2 = float,class:^(capture-daemon)$
-windowrulev2 = size 800 600,class:^(capture-daemon)$
-windowrulev2 = center,class:^(capture-daemon)$
-windowrulev2 = animation slide,class:^(capture-daemon)$
-
-# Auto-start daemon
-exec-once = python /path/to/capture_daemon/capture_daemon.py --daemon
+# Run installed app
+kms-electron
 ```
-
-## Architecture
-
-- **Background Daemon**: Long-running process with ncurses UI
-- **Trigger Script**: Lightweight script called by Hyprland keybinds
-- **Markdown Writer**: Safe file operations with unique ID generation
-- **Individual Storage**: Each idea gets its own markdown file
-- **Media Handling**: Files stored in `~/notes/capture/raw_capture/media/`
-
-## File Structure
-
-```
-~/notes/capture/raw_capture/
-├── 20240815_213245_123.md     # Individual idea files
-├── 20240815_213301_456.md
-├── 20240815_213445_789.md
-└── media/                     # Media attachments
-    ├── 20240815_213245_screenshot.png
-    └── 20240815_213301_audio.wav
-```
-
-## Keybindings
-
-### Global Actions
-
-- `Ctrl+S`: Save capture and exit
-- `ESC`: Cancel without saving
-- `Tab` / `Shift+Tab`: Navigate fields
-- `F1`: Toggle help
-
-### Content Field
-
-- `↑↓←→` or `hjkl`: Navigate cursor
-- `Home/End` or `Ctrl+A/E`: Line boundaries
-- `Page Up/Down`: Scroll content
-- `Ctrl+U`: Clear line
-- `Ctrl+W`: Delete word
-
-### Context & Tags Fields
-
-- `←→`: Navigate cursor
-- `Home/End`: Field boundaries
-- `Ctrl+U`: Clear field
-- `Enter`: Next field
-
-### Modalities
-
-- `←→`: Navigate options
-- `Space/Enter`: Toggle modality
-- `1-5`: Toggle by number
 
 ## Configuration
 
@@ -173,14 +102,8 @@ vault:
   capture_dir: "capture/raw_capture"
   media_dir: "capture/raw_capture/media"
 
-daemon:
-  socket_path: "/tmp/capture_daemon.sock"
-  auto_start: true
-
 ui:
-  theme: "default"
-  window_size: [80, 24]
-  auto_focus_content: true
+  clipboard_poll_ms: 200
 
 capture:
   auto_detect_modalities: true
@@ -205,36 +128,6 @@ flake8 *.py
 # Type checking
 mypy *.py
 ```
-
-### Building Package
-
-```bash
-# Build with nix
-nix build
-
-# Install to system
-nix profile install .
-```
-
-## Troubleshooting
-
-### Daemon Won't Start
-
-- Check socket permissions: `ls -la /tmp/capture_daemon.sock`
-- Verify directories exist: `ls -la ~/notes/capture/raw_capture/`
-- Check logs: `python capture_daemon.py --daemon` (foreground mode)
-
-### Capture UI Issues
-
-- Ensure terminal supports ncurses: `echo $TERM`
-- Check Python dependencies: `python -c "import curses, yaml"`
-- Test direct UI: `python capture_daemon.py --mode quick`
-
-### Media Capture Fails
-
-- Verify tools installed: `which grim slurp wl-paste arecord`
-- Check Wayland session: `echo $WAYLAND_DISPLAY`
-- Test tools manually: `grim test.png`
 
 ## License
 

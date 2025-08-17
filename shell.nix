@@ -10,8 +10,6 @@ pkgs.mkShell {
     python3Packages.uvicorn
     python3Packages.python-multipart
     
-    # Terminal UI
-    ncurses
     
     # Capture tools
     grim          # Screenshots
@@ -64,10 +62,6 @@ pkgs.mkShell {
     echo "🚀 Knowledge Management System Development Environment"
     echo ""
     echo "Available commands:"
-    echo "  # Terminal daemon:"
-    echo "  python capture_daemon.py --daemon    # Start daemon"
-    echo "  python trigger_capture.py quick      # Test trigger"
-    echo ""
     echo "  # Web application:"
     echo "  cd server && python app.py           # Start backend"
     echo "  cd web && npm run dev                # Start frontend"
@@ -85,8 +79,6 @@ pkgs.mkShell {
     # Create required directories
     mkdir -p ~/notes/capture/raw_capture/media
     
-    # Set up socket directory
-    mkdir -p /tmp/capture_daemon
     
     # Make scripts executable
     chmod +x *.py

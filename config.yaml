@@ -4,17 +4,8 @@ vault:
   capture_dir: "capture/raw_capture"
   media_dir: "capture/raw_capture/media"
 
-daemon:
-  socket_path: "/tmp/capture_daemon.sock"
-  auto_start: true
-  hot_reload: true
-  debug: false
-
 ui:
-  theme: "default"
-  window_size: [80, 24]
-  auto_focus_content: true
-  show_help: true
+  clipboard_poll_ms: 200
 
 capture:
   auto_detect_modalities: true
@@ -24,14 +15,6 @@ capture:
   geolocation_enabled: true
   default_importance: 0.5
   max_content_length: 10000
-
-keybindings:
-  save: "ctrl+s"
-  cancel: "escape"
-  next_field: "tab"
-  prev_field: "shift+tab"
-  toggle_mode: "space"
-  help: "f1"
 
 development:
   debug_logging: false
