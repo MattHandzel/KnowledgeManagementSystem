@@ -13,18 +13,24 @@ def run_tests():
     """Run all tests and return success status."""
     print("🧪 Running Capture Daemon Behavioral Tests")
     print("=" * 50)
-    
+
     project_root = Path(__file__).parent
-    
+
     try:
-        result = subprocess.run([
-            sys.executable, "-m", "pytest",
-            "tests/",
-            "-v",
-            "--tb=short",
-            "--color=yes"
-        ], cwd=project_root, capture_output=False)
-        
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/",
+                "-v",
+                "--tb=short",
+                "--color=yes",
+            ],
+            cwd=project_root,
+            capture_output=False,
+        )
+
         if result.returncode == 0:
             print("\n✅ All tests passed!")
             print("\n🎯 Test Coverage Summary:")
@@ -39,7 +45,7 @@ def run_tests():
         else:
             print(f"\n❌ Tests failed with exit code {result.returncode}")
             return False
-            
+
     except FileNotFoundError:
         print("❌ pytest not found. Install with: pip install pytest pytest-mock")
         return False
