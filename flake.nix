@@ -164,7 +164,7 @@
             # Node.js and Electron dependencies
             nodejs
             yarn
-            npm
+            nodePackages.npm
             
             # Electron system libraries (from shell.nix)
             xorg.libX11
