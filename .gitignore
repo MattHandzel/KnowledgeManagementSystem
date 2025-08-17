@@ -2,3 +2,9 @@ electron/node_modules/
 server/__pycache__/markdown_writer.cpython-313.pyc
 __pycache__
 server/__pycache__/
+
+# Database files
+*.db
+main.db
+suggestions.db
+server/*.db
