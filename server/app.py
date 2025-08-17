@@ -80,6 +80,29 @@ def api_screenshot():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def _validate_modalities_have_content(capture_data, modalities):
+    """Validate that selected modalities have actual content."""
+    if not modalities:
+        return False
+    
+    for modality in modalities:
+        if modality == "text":
+            if not capture_data.get("content", "").strip():
+                return False
+        elif modality == "clipboard":
+            pass
+        elif modality == "screenshot":
+            if not capture_data.get("media_files"):
+                return False
+        elif modality == "audio":
+            if not capture_data.get("media_files"):
+                return False
+        elif modality == "system-audio":
+            if not capture_data.get("media_files"):
+                return False
+    
+    return True
+
 @app.post("/api/capture")
 async def api_capture(
     content: str = Form(""),
@@ -129,6 +152,10 @@ async def api_capture(
         "created_date": cds,
         "last_edited_date": les,
     }
+    
+    if not _validate_modalities_have_content(capture, mod_list):
+        return JSONResponse({"error": "No content provided for selected modalities"}, status_code=400)
+    
     p = writer.write_capture(capture)
     return JSONResponse({"saved_to": str(p)})
 

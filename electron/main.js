@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -27,6 +27,8 @@ function startBackendServer() {
 
 async function createWindow() {
   await startBackendServer();
+
+  Menu.setApplicationMenu(null);
 
   mainWindow = new BrowserWindow({
     width: 1200,

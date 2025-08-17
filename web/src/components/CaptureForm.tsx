@@ -1,4 +1,5 @@
 import React from 'react'
+import EntityChips from './EntityChips'
 
 type Props = {
   content: string
@@ -24,13 +25,19 @@ const CaptureForm: React.FC<Props> = (p) => {
           <label>Context</label>
           <input value={p.context} onChange={e => p.setContext(e.target.value)} placeholder="key: value, or YAML" />
         </div>
-        <div className="col">
-          <label>Tags</label>
-          <input value={p.tags} onChange={e => p.setTags(e.target.value)} placeholder="comma,separated,tags" />
-        </div>
       </div>
-      <label>Sources</label>
-      <input value={p.sources} onChange={e => p.setSources(e.target.value)} placeholder="book: X, website: Y" />
+      <EntityChips
+        value={p.tags}
+        onChange={p.setTags}
+        placeholder="Add tags..."
+        label="Tags"
+      />
+      <EntityChips
+        value={p.sources}
+        onChange={p.setSources}
+        placeholder="Add sources..."
+        label="Sources"
+      />
       <div className="actions">
         <button onClick={p.onSave} disabled={p.saving}>{p.saving ? 'Saving...' : 'Save (Ctrl+S)'}</button>
       </div>
