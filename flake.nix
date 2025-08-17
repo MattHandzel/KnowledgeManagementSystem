@@ -45,6 +45,8 @@
           python3Packages.pip
           python3Packages.setuptools
           makeWrapper
+          nodejs
+          nodePackages.npm
         ];
 
         buildInputs = with pkgs; [
@@ -54,6 +56,7 @@
           python3Packages.pyyaml
           python3Packages.python-multipart
           python3Packages.typing-extensions
+          python3Packages.pydantic
 
           # Use Nix's pre-built Electron
           electron
@@ -105,9 +108,13 @@
           # Copy server backend
           cp -r server $out/lib/kms-electron/
 
-          # Copy built web frontend
-          mkdir -p $out/lib/kms-electron/web
-          cp -r ${web-frontend} $out/lib/kms-electron/web/dist
+          # Copy web frontend source files for npm run dev
+          cp -r web $out/lib/kms-electron/
+          
+          # Install npm dependencies for frontend server
+          cd $out/lib/kms-electron/web
+          npm install --production=false
+          cd -
 
           # Copy config
           cp config.yaml $out/lib/kms-electron/
@@ -164,6 +171,7 @@
           python3Packages.pyyaml
           python3Packages.python-multipart
           python3Packages.typing-extensions
+          python3Packages.pydantic
 
           # Node.js and Electron dependencies
           nodejs
