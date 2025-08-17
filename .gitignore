@@ -5,6 +5,4 @@ server/__pycache__/
 
 # Database files
 *.db
-main.db
-suggestions.db
-server/*.db
+server/main.db
