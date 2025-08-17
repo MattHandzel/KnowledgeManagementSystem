@@ -4,6 +4,7 @@ React Web App (new)
 A new React web app provides the same capture functionality as the terminal UI, with a small Python FastAPI backend that reuses the existing SafeMarkdownWriter to produce markdown files in your configured vault.
 
 What’s included
+
 - React (Vite + TypeScript) app in web/
 - FastAPI backend in server/app.py
 - Functional parity:
@@ -16,19 +17,21 @@ What’s included
 
 Run locally
 Backend
+
 - Install dependencies:
   - python3 -m venv .venv && source .venv/bin/activate
   - pip install -r server/requirements.txt
 - Start the server:
   - python server/app.py
-  - By default it serves at http://localhost:5174
+  - By default it serves at http://localhost:7123
 - The server reads config.yaml to determine vault.path, capture_dir, media_dir.
 
 Frontend
+
 - From web/:
   - npm install (or pnpm i / yarn)
   - npm run dev
-  - Visit http://localhost:5173 (the app calls /api on localhost:5174)
+  - Visit http://localhost:5173 (the app calls /api on localhost:7123)
 - Keyboard:
   - Ctrl+S saves
   - Ctrl+1..9 toggles modalities (plain numbers just type into fields)
@@ -36,6 +39,7 @@ Frontend
   - ESC clears the form
 
 Saving behavior
+
 - Files are saved under: {vault.path}/{vault.capture_dir}
 - Media files are saved under: {vault.path}/{vault.media_dir}
 - Frontmatter conforms to:
@@ -48,9 +52,11 @@ Saving behavior
   - No extra newline between closing --- and ## Content
 
 Notes
+
 - Clipboard preview requires clipboard permission in the browser. If the preview is empty, click the page and try again.
 - Screenshot capture uses browser APIs; depending on the browser, a picker is shown to choose the screen/window to capture.
 - The terminal app remains unchanged and continues to work as before.
+
 # Terminal Capture Daemon
 
 Ultra-lightweight, keyboard-driven knowledge capture system for NixOS and Hyprland. Provides instant popup capture interface with semantic keybindings and stores individual ideas as markdown files.
@@ -110,7 +116,7 @@ exec-once = python /path/to/capture_daemon/capture_daemon.py --daemon
 ## Architecture
 
 - **Background Daemon**: Long-running process with ncurses UI
-- **Trigger Script**: Lightweight script called by Hyprland keybinds  
+- **Trigger Script**: Lightweight script called by Hyprland keybinds
 - **Markdown Writer**: Safe file operations with unique ID generation
 - **Individual Storage**: Each idea gets its own markdown file
 - **Media Handling**: Files stored in `~/notes/capture/raw_capture/media/`
@@ -130,12 +136,14 @@ exec-once = python /path/to/capture_daemon/capture_daemon.py --daemon
 ## Keybindings
 
 ### Global Actions
+
 - `Ctrl+S`: Save capture and exit
 - `ESC`: Cancel without saving
 - `Tab` / `Shift+Tab`: Navigate fields
 - `F1`: Toggle help
 
 ### Content Field
+
 - `↑↓←→` or `hjkl`: Navigate cursor
 - `Home/End` or `Ctrl+A/E`: Line boundaries
 - `Page Up/Down`: Scroll content
@@ -143,12 +151,14 @@ exec-once = python /path/to/capture_daemon/capture_daemon.py --daemon
 - `Ctrl+W`: Delete word
 
 ### Context & Tags Fields
+
 - `←→`: Navigate cursor
 - `Home/End`: Field boundaries
 - `Ctrl+U`: Clear field
 - `Enter`: Next field
 
 ### Modalities
+
 - `←→`: Navigate options
 - `Space/Enter`: Toggle modality
 - `1-5`: Toggle by number
@@ -209,16 +219,19 @@ nix profile install .
 ## Troubleshooting
 
 ### Daemon Won't Start
+
 - Check socket permissions: `ls -la /tmp/capture_daemon.sock`
 - Verify directories exist: `ls -la ~/notes/capture/raw_capture/`
 - Check logs: `python capture_daemon.py --daemon` (foreground mode)
 
 ### Capture UI Issues
+
 - Ensure terminal supports ncurses: `echo $TERM`
 - Check Python dependencies: `python -c "import curses, yaml"`
 - Test direct UI: `python capture_daemon.py --mode quick`
 
 ### Media Capture Fails
+
 - Verify tools installed: `which grim slurp wl-paste arecord`
 - Check Wayland session: `echo $WAYLAND_DISPLAY`
 - Test tools manually: `grim test.png`

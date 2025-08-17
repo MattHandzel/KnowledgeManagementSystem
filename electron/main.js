@@ -1,31 +1,32 @@
-const { app, BrowserWindow } = require('electron')
-const path = require('path')
-const { spawn } = require('child_process')
+const { app, BrowserWindow } = require("electron");
+const path = require("path");
+const { spawn } = require("child_process");
 
-let mainWindow
-let serverProcess
+let mainWindow;
+let serverProcess;
 
 function startBackendServer() {
-  const serverPath = path.join(__dirname, '..', 'server')
-  const pythonPath = process.platform === 'win32' ? 'python' : 'python3'
-  
-  serverProcess = spawn(pythonPath, ['app.py'], {
-    cwd: serverPath,
-    stdio: 'inherit',
-    env: { ...process.env, PYTHONPATH: serverPath }
-  })
+  const serverPath = path.join(__dirname, "..", "server");
+  const pythonPath = process.platform === "win32" ? "python" : "python3";
 
-  serverProcess.on('error', (err) => {
-    console.error('Failed to start backend server:', err)
-  })
+  // TODO: Check to see if the backend server is already running, if so, don't bother spawning.
+  serverProcess = spawn(pythonPath, ["app.py"], {
+    cwd: serverPath,
+    stdio: "inherit",
+    env: { ...process.env, PYTHONPATH: serverPath },
+  });
+
+  serverProcess.on("error", (err) => {
+    console.error("Failed to start backend server:", err);
+  });
 
   return new Promise((resolve) => {
-    setTimeout(resolve, 3000)
-  })
+    setTimeout(resolve, 3000);
+  });
 }
 
 async function createWindow() {
-  await startBackendServer()
+  await startBackendServer();
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -33,37 +34,37 @@ async function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false
+      webSecurity: false,
     },
-    icon: path.join(__dirname, 'assets', 'icon.png')
-  })
+    icon: path.join(__dirname, "assets", "icon.png"),
+  });
 
-  mainWindow.loadURL('http://localhost:5174')
+  mainWindow.loadURL("http://localhost:5174");
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
+app.on("window-all-closed", () => {
   if (serverProcess) {
-    serverProcess.kill('SIGTERM')
+    serverProcess.kill("SIGTERM");
   }
-  if (process.platform !== 'darwin') {
-    app.quit()
+  if (process.platform !== "darwin") {
+    app.quit();
   }
-})
+});
 
-app.on('activate', () => {
+app.on("activate", () => {
   if (mainWindow === null) {
-    createWindow()
+    createWindow();
   }
-})
+});
 
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   if (serverProcess) {
-    serverProcess.kill('SIGTERM')
+    serverProcess.kill("SIGTERM");
   }
-})
+});
