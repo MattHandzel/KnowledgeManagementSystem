@@ -108,6 +108,9 @@
           # Copy server backend
           cp -r server $out/lib/kms-electron/
 
+          # Copy markdown_writer.py (required by server/app.py)
+          cp markdown_writer.py $out/lib/kms-electron/
+
           # Copy pre-built web frontend from the web-frontend derivation
           mkdir -p $out/lib/kms-electron/web/dist
           cp -r ${web-frontend}/* $out/lib/kms-electron/web/dist/
@@ -116,6 +119,11 @@
           cp web/package.json $out/lib/kms-electron/web/
           cp -r web/src $out/lib/kms-electron/web/ || true
           cp -r web/public $out/lib/kms-electron/web/ || true
+          
+          # Install web dependencies for development mode (npm run dev)
+          cd $out/lib/kms-electron/web
+          npm install
+          cd -
 
           # Copy config
           cp config.yaml $out/lib/kms-electron/
