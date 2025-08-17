@@ -22,12 +22,12 @@ const ClipboardPreview: React.FC<{ intervalMs: number }> = ({ intervalMs }) => {
     return () => { mounted = false; if (t) clearTimeout(t) }
   }, [intervalMs])
 
-  const lines = (text || '').split('\n')
+  const firstLine = (text || '').split('\n')[0] || ''
   return (
     <div className="clipboard">
       <div className="title">Clipboard Preview</div>
       <div className="body">
-        {text ? lines.map((l, i) => <div key={i}>{l.length > 160 ? l.slice(0,157)+'...' : l}</div>) : <div>(clipboard empty)</div>}
+        {text ? <div>{firstLine.length > 160 ? firstLine.slice(0,157)+'...' : firstLine}</div> : <div>(clipboard empty)</div>}
       </div>
     </div>
   )
