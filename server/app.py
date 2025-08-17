@@ -89,12 +89,21 @@ def api_screenshot():
 
 def _validate_modalities_have_content(capture_data, modalities):
     """Validate that selected modalities have actual content."""
+    print(f"DEBUG: Validating modalities: {modalities}")
+    print(f"DEBUG: Capture data keys: {list(capture_data.keys())}")
+    print(f"DEBUG: Content value: '{capture_data.get('content', '')}'")
+    
     if not modalities:
+        print("DEBUG: No modalities provided")
         return False
     
     for modality in modalities:
+        print(f"DEBUG: Checking modality: {modality}")
         if modality == "text":
-            if not capture_data.get("content", "").strip():
+            content = capture_data.get("content", "").strip()
+            print(f"DEBUG: Text content after strip: '{content}'")
+            if not content:
+                print("DEBUG: Text modality validation failed - no content")
                 return False
         elif modality == "clipboard":
             pass
@@ -108,6 +117,7 @@ def _validate_modalities_have_content(capture_data, modalities):
             if not capture_data.get("media_files"):
                 return False
     
+    print("DEBUG: All modality validations passed")
     return True
 
 @app.post("/api/capture")
@@ -133,14 +143,7 @@ async def api_capture(
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if isinstance(tags, str) else []
     src_list = [s.strip() for s in sources.split(",") if s.strip()] if isinstance(sources, str) else []
     mod_list = [m.strip() for m in modalities.split(",") if m.strip()] if isinstance(modalities, str) else []
-    ctx = {}
-    if context.strip():
-        try:
-            ctx = yaml.safe_load(context) or {}
-            if not isinstance(ctx, dict):
-                ctx = {"text": context}
-        except Exception:
-            ctx = {"text": context}
+    ctx = context.strip() if context.strip() else ""
     files_meta = []
     if media:
         media_dir = Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"]

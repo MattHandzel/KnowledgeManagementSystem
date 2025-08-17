@@ -159,7 +159,8 @@ body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: va
   color: var(--text-color);
 }
 
-.suggestion-item:hover {
+.suggestion-item:hover,
+.suggestion-item.selected {
   background: var(--form-bg);
 }
 

@@ -18,13 +18,11 @@ const App: React.FC = () => {
   const [tags, setTags] = useState('')
   const [sources, setSources] = useState('')
   const [modalities, setModalities] = useState<string[]>(['text'])
-  const [mode, setMode] = useState<'normal' | 'context'>('normal')
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedTo, setSavedTo] = useState<string | null>(null)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
@@ -33,22 +31,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); setHelp(x => !x) }
-      if (e.key.toLowerCase() === 's' && e.ctrlKey) { e.preventDefault(); onSave() }
+      if (e.key.toLowerCase() === 's' && e.ctrlKey) { 
+        e.preventDefault(); 
+        handleSave()
+      }
       if (e.key === 'Escape') { 
         e.preventDefault(); 
-        if (mode === 'context') {
-          setMode('normal')
-        } else {
-          resetForm()
-        }
-      }
-      if (e.key.toLowerCase() === 'c' && mode === 'normal') {
-        e.preventDefault()
-        setMode('context')
-      }
-      if (e.key.toLowerCase() === 't' && mode === 'normal') {
-        e.preventDefault()
-        setTheme(theme === 'light' ? 'dark' : 'light')
+        resetForm()
       }
       if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
@@ -60,7 +49,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [modalities, mode, theme])
+  }, [modalities, content, context, tags, sources])
 
   const toggleModality = (m: string) => {
     setModalities(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
@@ -105,7 +94,10 @@ const App: React.FC = () => {
     setMediaFiles(prev => [...prev, file])
     if (!modalities.includes('system-audio')) setModalities([...modalities, 'system-audio'])
   }
-  const onSave = async () => {
+  const handleSave = async () => {
+    console.log('DEBUG: onSave called with content:', content)
+    console.log('DEBUG: onSave called with context:', context)
+    console.log('DEBUG: onSave called with tags:', tags)
     setSaving(true)
     try {
       const fd = new FormData()
@@ -163,9 +155,6 @@ const App: React.FC = () => {
     }
   }, [popup])
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
 
   return (
     <div className="container">
@@ -177,8 +166,7 @@ const App: React.FC = () => {
         sources={sources} setSources={setSources}
         onFiles={onFiles}
         saving={saving}
-        onSave={onSave}
-        mode={mode}
+        onSave={handleSave}
       />
       {modalities.includes('clipboard') && <ClipboardPreview intervalMs={pollMs} />}
       {modalities.includes('audio') && (

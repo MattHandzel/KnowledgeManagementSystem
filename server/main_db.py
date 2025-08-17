@@ -92,10 +92,13 @@ class MainDatabase:
     
     def store_capture_data(self, capture_data: Dict[str, Any]):
         """Store comprehensive capture data in the database."""
+        print(f"DEBUG: store_capture_data called with: {capture_data}")
         timestamp = datetime.now(timezone.utc).isoformat()
         capture_id = capture_data.get("capture_id", timestamp)
+        print(f"DEBUG: Using capture_id: {capture_id}, timestamp: {timestamp}")
         
         with sqlite3.connect(self.db_path) as conn:
+            print(f"DEBUG: Inserting capture with content: '{capture_data.get('content', '')}', context: '{capture_data.get('context', '')}', tags: {capture_data.get('tags', [])}")
             conn.execute("""
                 INSERT OR REPLACE INTO captures 
                 (capture_id, timestamp, content, context, modalities, location, metadata, created_date, last_edited_date, file_path)
@@ -104,7 +107,7 @@ class MainDatabase:
                 capture_id,
                 timestamp,
                 capture_data.get("content", ""),
-                json.dumps(capture_data.get("context", {})),
+                capture_data.get("context", ""),
                 json.dumps(capture_data.get("modalities", [])),
                 json.dumps(capture_data.get("location")),
                 json.dumps(capture_data.get("metadata", {})),
@@ -112,6 +115,7 @@ class MainDatabase:
                 capture_data.get("last_edited_date", ""),
                 capture_data.get("file_path", "")
             ))
+            print("DEBUG: Capture inserted successfully")
             
             tags = capture_data.get("tags", [])
             if isinstance(tags, str):
@@ -133,20 +137,12 @@ class MainDatabase:
                         VALUES (?, ?, ?)
                     """, (source.strip(), capture_id, timestamp))
             
-            context = capture_data.get("context", {})
+            context = capture_data.get("context", "")
             if isinstance(context, str) and context.strip():
                 conn.execute("""
                     INSERT INTO contexts (value, capture_id, timestamp)
                     VALUES (?, ?, ?)
                 """, (context.strip(), capture_id, timestamp))
-            elif isinstance(context, dict):
-                for key, value in context.items():
-                    if value:
-                        context_str = f"{key}: {value}"
-                        conn.execute("""
-                            INSERT INTO contexts (value, capture_id, timestamp)
-                            VALUES (?, ?, ?)
-                        """, (context_str, capture_id, timestamp))
             
             media_files = capture_data.get("media_files", [])
             for media_file in media_files:
@@ -162,6 +158,7 @@ class MainDatabase:
                 ))
             
             conn.commit()
+            print("DEBUG: Database transaction committed successfully")
     
     def get_suggestions(self, field_type: str, query: str = "", limit: int = 10) -> List[SuggestionItem]:
         """Get suggestions for a field type with fuzzy matching and sorting."""

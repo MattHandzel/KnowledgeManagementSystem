@@ -14,7 +14,6 @@ type Props = {
   onFiles: (f: FileList | null) => void
   saving: boolean
   onSave: () => void
-  mode?: 'normal' | 'context'
 }
 
 const CaptureForm: React.FC<Props> = (p) => {
@@ -86,7 +85,7 @@ const CaptureForm: React.FC<Props> = (p) => {
           onFocus={() => p.context.trim() && setShowContextSuggestions(true)}
           onBlur={() => setTimeout(() => setShowContextSuggestions(false), 200)}
           placeholder="Context"
-          className={p.mode === 'context' ? 'context-focused' : ''}
+          className=""
           style={{ color: contextColor }}
         />
         <SuggestionDropdown
