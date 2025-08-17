@@ -33,7 +33,7 @@ function startFrontendServer() {
   frontendProcess = spawn(npmCommand, ["run", "dev"], {
     cwd: webPath,
     stdio: "inherit",
-    env: { ...process.env }
+    env: { ...process.env },
   });
 
   frontendProcess.on("error", (err) => {
@@ -53,7 +53,7 @@ async function createWindow() {
 
   mainWindow = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 725,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
