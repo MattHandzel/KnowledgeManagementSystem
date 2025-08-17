@@ -19,3 +19,7 @@ h1 { font-size: 20px; margin: 8px 0 16px; }
 .help .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #8884; }
 .help pre { margin: 0; padding: 12px; font-size: 13px; }
 .saved { position: fixed; right: 16px; bottom: 16px; background: #14532d; color: #ecfdf5; padding: 10px 12px; border-radius: 8px; }
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:6px;border:1px solid #ccc;border-radius:4px}
+.chip{background:#eee;border-radius:16px;padding:2px 8px;display:inline-flex;align-items:center;gap:6px}
+.chip button{border:none;background:transparent;cursor:pointer}
+.chips input{border:none;outline:none;min-width:120px}

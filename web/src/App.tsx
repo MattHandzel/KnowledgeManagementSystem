@@ -16,6 +16,10 @@ const App: React.FC = () => {
   const [context, setContext] = useState('')
   const [tags, setTags] = useState('')
   const [sources, setSources] = useState('')
+  const [tagsList, setTagsList] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
+  const [sourcesList, setSourcesList] = useState<string[]>([])
+  const [sourceInput, setSourceInput] = useState('')
   const [modalities, setModalities] = useState<string[]>(['text'])
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -55,8 +59,30 @@ const App: React.FC = () => {
     setContext('')
     setTags('')
     setSources('')
+    setTagsList([])
+    setTagInput('')
+    setSourcesList([])
+    setSourceInput('')
     setModalities(['text'])
     setMediaFiles([])
+  }
+
+  const commitIfDelimiter = (value: string, setterList: (fn: (prev: string[]) => string[]) => void, setInput: (s: string) => void) => {
+    if (value.endsWith(', ')) {
+      const token = value.slice(0, -2).trim()
+      if (token) setterList(prev => [...prev, token])
+      setInput('')
+    } else {
+      setInput(value)
+    }
+  }
+  const onTagInputChange = (v: string) => commitIfDelimiter(v, setTagsList, setTagInput)
+  const onSourceInputChange = (v: string) => commitIfDelimiter(v, setSourcesList, setSourceInput)
+  const onTagBackspace = () => {
+    if (!tagInput && tagsList.length) setTagsList(prev => prev.slice(0, -1))
+  }
+  const onSourceBackspace = () => {
+    if (!sourceInput && sourcesList.length) setSourcesList(prev => prev.slice(0, -1))
   }
   const onFiles = (files: FileList | null) => {
     if (!files) return
@@ -89,8 +115,8 @@ const App: React.FC = () => {
       const fd = new FormData()
       fd.append('content', content)
       fd.append('context', context)
-      fd.append('tags', tags)
-      fd.append('sources', sources)
+      fd.append('tags', tagsList.join(','))
+      fd.append('sources', sourcesList.join(','))
       fd.append('modalities', modalities.join(','))
       const now = new Date()
       const d = now.toISOString().slice(0,10)
@@ -123,8 +149,10 @@ const App: React.FC = () => {
       <CaptureForm
         content={content} setContent={setContent}
         context={context} setContext={setContext}
-        tags={tags} setTags={setTags}
-        sources={sources} setSources={setSources}
+        tagsList={tagsList} setTagsList={setTagsList}
+        tagInput={tagInput} onTagInputChange={onTagInputChange} onTagBackspace={onTagBackspace}
+        sourcesList={sourcesList} setSourcesList={setSourcesList}
+        sourceInput={sourceInput} onSourceInputChange={onSourceInputChange} onSourceBackspace={onSourceBackspace}
         onFiles={onFiles}
         saving={saving}
         onSave={onSave}
