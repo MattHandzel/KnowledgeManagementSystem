@@ -13,6 +13,7 @@ type Props = {
   onFiles: (f: FileList | null) => void
   saving: boolean
   onSave: () => void
+  mode?: 'normal' | 'context'
 }
 
 const CaptureForm: React.FC<Props> = (p) => {
@@ -23,7 +24,12 @@ const CaptureForm: React.FC<Props> = (p) => {
       <div className="row">
         <div className="col">
           <label>Context</label>
-          <input value={p.context} onChange={e => p.setContext(e.target.value)} placeholder="key: value, or YAML" />
+          <input 
+            value={p.context} 
+            onChange={e => p.setContext(e.target.value)} 
+            placeholder="key: value, or YAML"
+            className={p.mode === 'context' ? 'context-focused' : ''}
+          />
         </div>
       </div>
       <EntityChips

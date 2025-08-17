@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [tags, setTags] = useState('')
   const [sources, setSources] = useState('')
   const [modalities, setModalities] = useState<string[]>(['text'])
+  const [mode, setMode] = useState<'normal' | 'context'>('normal')
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedTo, setSavedTo] = useState<string | null>(null)
@@ -31,7 +32,18 @@ const App: React.FC = () => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); setHelp(x => !x) }
       if (e.key.toLowerCase() === 's' && e.ctrlKey) { e.preventDefault(); onSave() }
-      if (e.key === 'Escape') { e.preventDefault(); resetForm() }
+      if (e.key === 'Escape') { 
+        e.preventDefault(); 
+        if (mode === 'context') {
+          setMode('normal')
+        } else {
+          resetForm()
+        }
+      }
+      if (e.key.toLowerCase() === 'c' && mode === 'normal') {
+        e.preventDefault()
+        setMode('context')
+      }
       if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
@@ -42,7 +54,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [modalities])
+  }, [modalities, mode])
 
   const toggleModality = (m: string) => {
     setModalities(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
@@ -68,9 +80,9 @@ const App: React.FC = () => {
     try {
       const response = await fetch('/api/screenshot', { method: 'POST' })
       const data = await response.json()
-      if (data.success) {
-        const file = new File([new Blob()], `screenshot_${Date.now()}.png`, { type: 'image/png' })
-        setMediaFiles(prev => [...prev, file])
+      if (data.success && data.path) {
+        const screenshotMeta = { path: data.path, type: 'screenshot', name: `screenshot_${Date.now()}.png` }
+        setMediaFiles(prev => [...prev, screenshotMeta as any])
         if (!modalities.includes('screenshot')) setModalities([...modalities, 'screenshot'])
       }
     } catch (error) {
@@ -96,11 +108,29 @@ const App: React.FC = () => {
       fd.append('tags', tags)
       fd.append('sources', sources)
       fd.append('modalities', modalities.join(','))
+      
+      if (modalities.includes('clipboard')) {
+        try {
+          const clipResponse = await fetch('/api/clipboard')
+          const clipData = await clipResponse.json()
+          fd.append('clipboard', clipData.content || '')
+        } catch (error) {
+          console.error('Failed to get clipboard content:', error)
+        }
+      }
+      
       const now = new Date()
       const d = now.toISOString().slice(0,10)
       fd.append('created_date', d)
       fd.append('last_edited_date', d)
-      mediaFiles.forEach(f => fd.append('media', f, f.name))
+      mediaFiles.forEach(f => {
+        if (f.path && f.type) {
+          fd.append('screenshot_path', f.path)
+          fd.append('screenshot_type', f.type)
+        } else {
+          fd.append('media', f, f.name)
+        }
+      })
       const r = await fetch('/api/capture', { method: 'POST', body: fd })
       const j = await r.json()
       setSavedTo(j.saved_to || null)
@@ -119,10 +149,6 @@ const App: React.FC = () => {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>KMS Capture</h1>
-        <button aria-label="Help" onClick={() => setHelp(true)}>Help</button>
-      </div>
       <ModalityBar modalities={modalities} onToggle={toggleModality} onScreenshot={onScreenshot} />
       <CaptureForm
         content={content} setContent={setContent}
@@ -132,6 +158,7 @@ const App: React.FC = () => {
         onFiles={onFiles}
         saving={saving}
         onSave={onSave}
+        mode={mode}
       />
       {modalities.includes('clipboard') && <ClipboardPreview intervalMs={pollMs} />}
       {modalities.includes('audio') && (

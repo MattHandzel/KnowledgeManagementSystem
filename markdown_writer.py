@@ -177,8 +177,8 @@ class SafeMarkdownWriter:
             "capture_id": capture_id,
             "modalities": capture_data.get("modalities", ["text"]),
             "context": context_entities,
-            "source_entities": source_entities,
-            "tag_entities": tag_entities,
+            "sources": source_entities,
+            "tags": tag_entities,
             "location": capture_data.get("location"),
             "metadata": capture_data.get("metadata", {}),
             "processing_status": "raw",
@@ -205,22 +205,21 @@ class SafeMarkdownWriter:
 
         media_files = capture_data.get("media_files", [])
         if media_files:
-            media_section = "## Media\n"
             for media_file in media_files:
                 media_type = media_file.get("type", "file")
                 media_path = media_file.get("path", "")
-                relative_path = self.get_relative_media_path(media_path)
 
                 if media_type == "screenshot":
-                    media_section += f"- Screenshot: ![Screenshot]({relative_path})\n"
+                    content_sections.append(f"## Screenshot\n{media_path}\n")
                 elif media_type == "audio":
-                    media_section += f"- Audio: [Audio Recording]({relative_path})\n"
+                    relative_path = self.get_relative_media_path(media_path)
+                    content_sections.append(f"## Audio\n[Audio Recording]({relative_path})\n")
                 elif media_type == "image":
-                    media_section += f"- Image: ![Image]({relative_path})\n"
+                    relative_path = self.get_relative_media_path(media_path)
+                    content_sections.append(f"## Image\n![Image]({relative_path})\n")
                 else:
-                    media_section += f"- File: [Attachment]({relative_path})\n"
-
-            content_sections.append(media_section)
+                    relative_path = self.get_relative_media_path(media_path)
+                    content_sections.append(f"## File\n[Attachment]({relative_path})\n")
 
         yaml_content = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
         formatted_content = f"---\n{yaml_content}---\n{''.join(content_sections)}"
@@ -228,9 +227,7 @@ class SafeMarkdownWriter:
 
     def generate_capture_id(self, timestamp: datetime) -> str:
         """Generate a unique capture ID based on timestamp."""
-        return timestamp.strftime("%Y%m%d_%H%M%S_%f")[
-            :-3
-        ]  # Remove last 3 microsecond digits
+        return timestamp.isoformat()
 
     def get_relative_media_path(self, media_path: str) -> str:
         """Convert absolute media path to relative path from capture dir."""

@@ -16,6 +16,7 @@ import subprocess
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from markdown_writer import SafeMarkdownWriter
+from geolocation import get_device_location
 
 app = FastAPI()
 app.add_middleware(
@@ -113,6 +114,9 @@ async def api_capture(
     tags: str = Form(""),
     sources: str = Form(""),
     modalities: str = Form(""),
+    clipboard: str = Form(""),
+    screenshot_path: str = Form(""),
+    screenshot_type: str = Form(""),
     created_date: Optional[str] = Form(None),
     last_edited_date: Optional[str] = Form(None),
     media: Optional[List[UploadFile]] = File(None),
@@ -144,13 +148,20 @@ async def api_capture(
             b = await f.read()
             dest.write_bytes(b)
             files_meta.append({"path": str(dest), "name": name})
+    
+    if screenshot_path and screenshot_type:
+        files_meta.append({"path": screenshot_path, "type": screenshot_type})
+    location_data = get_device_location()
+    
     capture = {
         "timestamp": ts,
         "content": content or "",
+        "clipboard": clipboard or "",
         "context": ctx,
         "tags": tag_list,
         "modalities": mod_list or ["text"],
         "sources": src_list,
+        "location": location_data,
         "media_files": files_meta,
         "created_date": cds,
         "last_edited_date": les,
