@@ -12,17 +12,21 @@ from typing import Optional, Dict, Any
 def get_device_location() -> Optional[Dict[str, Any]]:
     """Get device location using IP-based geolocation."""
     try:
-        result = subprocess.run(['curl', '-s', 'http://ip-api.com/json/'], 
-                              capture_output=True, text=True, timeout=5)
+        result = subprocess.run(
+            ["curl", "-s", "http://ip-api.com/json/"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
         if result.returncode == 0:
             data = json.loads(result.stdout)
-            if data.get('status') == 'success':
+            if data.get("status") == "success":
                 return {
-                    'latitude': data.get('lat'),
-                    'longitude': data.get('lon'),
-                    'city': data.get('city'),
-                    'country': data.get('country'),
-                    'timezone': data.get('timezone')
+                    "latitude": data.get("lat"),
+                    "longitude": data.get("lon"),
+                    "city": data.get("city"),
+                    "country": data.get("country"),
+                    "timezone": data.get("timezone"),
                 }
     except Exception as e:
         print(f"Geolocation failed: {e}")
