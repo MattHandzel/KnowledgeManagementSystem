@@ -12,7 +12,6 @@ function startBackendServer() {
   
   const configFile = process.env.npm_lifecycle_event === 'dev' ? '../config-dev.yaml' : '../config-prod.yaml';
 
-  // TODO: Check to see if the backend server is already running, if so, don't bother spawning.
   serverProcess = spawn(pythonPath, ["app.py", "--config", configFile], {
     cwd: serverPath,
     stdio: "inherit",
@@ -48,8 +47,12 @@ function startFrontendServer() {
 }
 
 async function createWindow() {
-  await startBackendServer();
-  await startFrontendServer();
+  const isPackaged = process.env.KMS_ROOT !== undefined;
+  
+  if (!isPackaged) {
+    await startBackendServer();
+    await startFrontendServer();
+  }
 
   Menu.setApplicationMenu(null);
 
@@ -64,7 +67,11 @@ async function createWindow() {
     icon: path.join(__dirname, "assets", "icon.png"),
   });
 
-  mainWindow.loadURL("http://localhost:5173");
+  if (isPackaged) {
+    mainWindow.loadURL("http://localhost:7123");
+  } else {
+    mainWindow.loadURL("http://localhost:5173");
+  }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
