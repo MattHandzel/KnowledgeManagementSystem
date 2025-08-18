@@ -34,10 +34,17 @@
           ];
           
           buildPhase = ''
+            echo "=== Starting React frontend build ==="
             export HOME=$TMPDIR
             export npm_config_cache=$TMPDIR/.npm
-            npm ci
-            npm run build
+            
+            echo "Installing npm dependencies..."
+            npm ci --verbose
+            
+            echo "Building React app with Vite..."
+            npm run build --verbose
+            
+            echo "=== Frontend build completed ==="
           '';
           
           installPhase = ''
@@ -64,33 +71,38 @@
           ];
           
           buildPhase = ''
+            echo "=== Starting kms-capture package build ==="
             export HOME=$TMPDIR
             export npm_config_cache=$TMPDIR/.npm
             
-            # Install electron dependencies
+            echo "Installing Electron dependencies..."
             cd electron
-            npm ci
+            npm ci --verbose
             cd ..
+            
+            echo "=== Package build phase completed ==="
           '';
           
           installPhase = ''
+            echo "=== Starting kms-capture installation ==="
             mkdir -p $out/bin
             mkdir -p $out/lib/kms-capture
             
-            # Copy server files
+            echo "Copying Python backend server files..."
             cp -r server $out/lib/kms-capture/
             
-            # Copy built web assets
+            echo "Copying built React frontend assets..."
             mkdir -p $out/lib/kms-capture/web/dist
             cp -r ${webBuild}/* $out/lib/kms-capture/web/dist/
             
-            # Copy electron files and node_modules
+            echo "Copying Electron application files..."
             cp -r electron $out/lib/kms-capture/
             
-            # Copy configuration files
+            echo "Copying configuration files..."
             cp config-prod.yaml $out/lib/kms-capture/
             cp config-dev.yaml $out/lib/kms-capture/
             
+            echo "Creating unified wrapper script..."
             # Create wrapper script
             cat > $out/bin/kms-capture << 'EOF'
             #!/bin/bash
@@ -125,6 +137,7 @@
             # Cleanup will be called by trap
             EOF
             
+            echo "Making wrapper script executable and setting up PATH..."
             # Make the wrapper script executable and wrap it with proper paths
             chmod +x $out/bin/kms-capture
             wrapProgram $out/bin/kms-capture \
@@ -143,6 +156,8 @@
             Type=Application
             Categories=Office;Utility;
             EOF
+            
+            echo "=== kms-capture installation completed successfully ==="
           '';
           
           meta = with pkgs.lib; {
