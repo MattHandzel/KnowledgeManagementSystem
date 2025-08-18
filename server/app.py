@@ -44,7 +44,7 @@ def load_config(config_path=None):
     if config_path:
         cfg_path = Path(config_path)
         if not cfg_path.is_absolute():
-            cfg_path = Path(__file__).resolve().parent / config_path
+            cfg_path = Path(__file__).resolve().parent.parent / config_path
     else:
         cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
     
@@ -247,6 +247,13 @@ def api_suggestion_exists(field_type: str, value: str):
     
     exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
+
+
+@app.get("/api/recent-values")
+def api_recent_values():
+    """Get the most recent values for field restoration."""
+    recent_values = get_main_db().get_most_recent_values()
+    return {"recent_values": recent_values}
 
 
 if __name__ == "__main__":

@@ -251,37 +251,49 @@ class MainDatabase:
             count = cursor.fetchone()[0]
             return count > 0
     
-    def get_most_recent_values(self) -> Dict[str, str]:
-        """Get the most recently used values for each field type."""
+    def get_most_recent_values(self) -> Dict[str, List[str]]:
+        """Get all values from the most recent capture session for each field type."""
         result = {}
         
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("""
-                SELECT value FROM tags 
+                SELECT capture_id FROM captures 
                 ORDER BY timestamp DESC 
                 LIMIT 1
             """)
             row = cursor.fetchone()
-            if row:
-                result['tags'] = row[0]
+            if not row:
+                return result
+            
+            most_recent_capture_id = row[0]
+            
+            cursor = conn.execute("""
+                SELECT value FROM tags 
+                WHERE capture_id = ?
+                ORDER BY timestamp DESC
+            """, (most_recent_capture_id,))
+            tags = [row[0] for row in cursor.fetchall()]
+            if tags:
+                result['tags'] = tags
             
             cursor = conn.execute("""
                 SELECT value FROM sources 
-                ORDER BY timestamp DESC 
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row:
-                result['sources'] = row[0]
+                WHERE capture_id = ?
+                ORDER BY timestamp DESC
+            """, (most_recent_capture_id,))
+            sources = [row[0] for row in cursor.fetchall()]
+            if sources:
+                result['sources'] = sources
             
             cursor = conn.execute("""
                 SELECT value FROM contexts 
-                ORDER BY timestamp DESC 
+                WHERE capture_id = ?
+                ORDER BY timestamp DESC
                 LIMIT 1
-            """)
+            """, (most_recent_capture_id,))
             row = cursor.fetchone()
             if row:
-                result['context'] = row[0]
+                result['context'] = [row[0]]
         
         return result
     
