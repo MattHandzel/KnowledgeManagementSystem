@@ -95,26 +95,11 @@ const CaptureForm: React.FC<Props> = (p) => {
 
   return (
     <div className="form">
-      <div
-        contentEditable
-        suppressContentEditableWarning={true}
-        onInput={(e) => {
-          const target = e.target as HTMLDivElement
-          p.setContent(target.textContent || '')
-        }}
-        onBlur={(e) => {
-          const target = e.target as HTMLDivElement
-          target.innerHTML = renderInlineMarkdown(p.content)
-        }}
-        onFocus={(e) => {
-          const target = e.target as HTMLDivElement
-          if (target.textContent !== p.content) {
-            target.textContent = p.content
-          }
-        }}
-        className="markdown-content-field"
-        style={{ minHeight: '200px', whiteSpace: 'pre-wrap' }}
-        dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(p.content) }}
+      <textarea 
+        value={p.content} 
+        onChange={e => p.setContent(e.target.value)} 
+        rows={10} 
+        placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
       />
       <div className="context-input-container">
         <input 

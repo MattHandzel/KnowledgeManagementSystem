@@ -102,8 +102,13 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             fieldType={fieldType}
             query={inputValue}
             onSelect={(value) => {
-              setInputValue(value)
-              setShowSuggestions(false)
+              const trimmed = value.trim()
+              if (trimmed && !entities.includes(trimmed)) {
+                const newEntities = [...entities, trimmed]
+                onChange(newEntities.join(', '))
+                setInputValue('')
+                setShowSuggestions(false)
+              }
             }}
             visible={showSuggestions}
             onClose={() => setShowSuggestions(false)}
