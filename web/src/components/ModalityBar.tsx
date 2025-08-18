@@ -12,7 +12,7 @@ const all = ['text','clipboard','screenshot','audio','system-audio']
 const modalityIcons: Record<string, string> = {
   text: '📝',
   clipboard: '📋', 
-  screenshot: '📷',
+  screenshot: '💻',
   audio: '🎤',
   'system-audio': '🔊'
 }

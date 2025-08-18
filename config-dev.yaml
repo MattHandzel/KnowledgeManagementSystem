@@ -8,6 +8,7 @@ database:
 
 ui:
   clipboard_poll_ms: 200
+  use_modality_icons: true
 
 theme:
   mode: "dark"
