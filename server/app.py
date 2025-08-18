@@ -38,16 +38,29 @@ def load_config():
         return yaml.safe_load(f) or {}
 
 def normalize_config(cfg):
-    v = cfg.get("vault", {})
+    mode = os.environ.get('KMS_MODE', 'prod').lower()
+    is_dev = mode == 'dev'
+    
+    if is_dev:
+        vault_config = cfg.get("vault_dev", cfg.get("vault", {}))
+        root_path = str(Path(__file__).resolve().parent.parent)
+        if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
+            vault_config["path"] = root_path
+    else:
+        vault_config = cfg.get("vault", {})
+    
     d = {
         "vault": {
-            "path": os.path.expanduser(v.get("path") or "~/notes"),
-            "capture_dir": v.get("capture_dir") or "capture/raw_capture",
-            "media_dir": v.get("media_dir") or "capture/raw_capture/media",
+            "path": os.path.expanduser(vault_config.get("path") or "~/notes"),
+            "capture_dir": vault_config.get("capture_dir") or "capture/raw_capture",
+            "media_dir": vault_config.get("media_dir") or "capture/raw_capture/media",
         },
         "ui": cfg.get("ui", {}),
         "capture": cfg.get("capture", {}),
         "keybindings": cfg.get("keybindings", {}),
+        "theme": cfg.get("theme", {}),
+        "mode": mode,
+        "is_dev": is_dev,
     }
     return d
 
@@ -218,4 +231,9 @@ if __name__ == "__main__":
     config.bind = [f"0.0.0.0:{int(os.environ.get('PORT', '7123'))}"]
     config.use_reloader = False
     config.accesslog = "-"
+    
+    mode = os.environ.get('KMS_MODE', 'prod').lower()
+    if mode == 'dev':
+        print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
+    
     asyncio.run(serve(app, config))

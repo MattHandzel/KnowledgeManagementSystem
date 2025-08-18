@@ -9,6 +9,9 @@ type Config = {
   vault: { path: string; capture_dir: string; media_dir: string }
   ui?: { clipboard_poll_ms?: number; show_help?: boolean }
   capture?: Record<string, unknown>
+  theme?: { accent_color?: string; accent_hover?: string; accent_shadow?: string }
+  mode?: string
+  is_dev?: boolean
 }
 
 const App: React.FC = () => {
@@ -25,13 +28,21 @@ const App: React.FC = () => {
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(setConfig).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
+    fetch('/api/config').then(r => r.json()).then(config => {
+      setConfig(config)
+      if (config.theme) {
+        const root = document.documentElement
+        if (config.theme.accent_color) root.style.setProperty('--accent-color', config.theme.accent_color)
+        if (config.theme.accent_hover) root.style.setProperty('--accent-hover', config.theme.accent_hover)
+        if (config.theme.accent_shadow) root.style.setProperty('--accent-shadow', config.theme.accent_shadow)
+      }
+    }).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
   }, [])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); setHelp(x => !x) }
-      if (e.key.toLowerCase() === 's' && e.ctrlKey) { 
+      if (e.key === 'Enter' && e.ctrlKey) { 
         e.preventDefault(); 
         handleSave()
       }
@@ -158,6 +169,11 @@ const App: React.FC = () => {
 
   return (
     <div className="container">
+      {config?.is_dev && (
+        <div className="dev-banner">
+          🚧 DEV MODE 🚧
+        </div>
+      )}
       <ModalityBar modalities={modalities} onToggle={toggleModality} onScreenshot={onScreenshot} />
       <CaptureForm
         content={content} setContent={setContent}

@@ -9,7 +9,7 @@ const HelpOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <button onClick={onClose}>Close</button>
         </div>
         <pre>
-Ctrl+S save
+Ctrl+Enter save
 Ctrl+1..9 toggle modalities
 Tab/Shift+Tab navigate inputs
 ESC normal mode / clear

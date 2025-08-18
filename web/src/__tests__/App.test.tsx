@@ -29,9 +29,9 @@ describe('App keybindings and help', () => {
     mockFetchConfigAndCapture()
   })
 
-  it('Ctrl+S triggers save and shows toast', async () => {
+  it('Ctrl+Enter triggers save and shows toast', async () => {
     render(<App />)
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
     const toast = await screen.findByText(/Saved to /i, {}, { timeout: 2000 })
     expect(toast).toBeInTheDocument()
   })

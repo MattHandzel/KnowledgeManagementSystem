@@ -7,9 +7,9 @@
   --text-color: #495057;
   --text-muted: #6c757d;
   --border-color: #dee2e6;
-  --accent-color: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-shadow: rgba(79, 70, 229, 0.1);
+  --accent-color: #4c1d95;
+  --accent-hover: #3730a3;
+  --accent-shadow: rgba(76, 29, 149, 0.2);
   --disabled-color: #9ca3af;
 }
 
@@ -21,9 +21,9 @@
   --text-color: #e0e0e0;
   --text-muted: #a0a0a0;
   --border-color: #555555;
-  --accent-color: #6366f1;
-  --accent-hover: #5b5bf6;
-  --accent-shadow: rgba(99, 102, 241, 0.2);
+  --accent-color: #4c1d95;
+  --accent-hover: #3730a3;
+  --accent-shadow: rgba(76, 29, 149, 0.2);
   --disabled-color: #666666;
 }
 body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color); }
@@ -43,7 +43,7 @@ body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: va
 .mods button.active { background: var(--accent-color); color: white; border-color: var(--accent-color); box-shadow: 0 2px 8px var(--accent-shadow); }
 .clipboard { margin-top: 8px; border: 2px solid var(--border-color); border-radius: 6px; background: var(--input-bg); }
 .clipboard .title { padding: 6px 10px; font-weight: 600; background: var(--form-bg); border-bottom: 1px solid var(--border-color); color: var(--text-color); }
-.clipboard .body { padding: 10px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; max-height: 150px; overflow: auto; color: var(--text-muted); }
+.clipboard .body { padding: 10px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; max-height: 150px; overflow: hidden; color: var(--text-muted); }
 .help { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; backdrop-filter: blur(4px); }
 .help .panel { width: min(600px, 90vw); background: white; color: #495057; border-radius: 16px; border: 1px solid #e9ecef; box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
 .help .hdr { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e9ecef; }
@@ -176,4 +176,15 @@ body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: va
 .suggestion-meta {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.dev-banner {
+  background: #dc2626;
+  color: white;
+  text-align: center;
+  padding: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 8px;
+  border-radius: 4px;
 }

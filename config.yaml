@@ -4,8 +4,18 @@ vault:
   capture_dir: "capture/raw_capture"
   media_dir: "capture/raw_capture/media"
 
+vault_dev:
+  path: "ROOT_DIRECTORY_PATH"
+  capture_dir: "raw_capture"
+  media_dir: "raw_capture/media"
+
 ui:
   clipboard_poll_ms: 200
+
+theme:
+  accent_color: "#4c1d95"
+  accent_hover: "#3730a3"
+  accent_shadow: "rgba(76, 29, 149, 0.2)"
 
 capture:
   auto_detect_modalities: true
@@ -13,7 +23,6 @@ capture:
   tag_suggestions: true
   sources_suggestions: true
   geolocation_enabled: true
-  default_importance: 0.5
   max_content_length: 10000
 
 development:
