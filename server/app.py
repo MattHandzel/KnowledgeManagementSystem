@@ -61,20 +61,38 @@ def normalize_config(cfg):
     vault_config = cfg.get("vault", {})
     database_config = cfg.get("database", {})
     
-    if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
+    vault_path = vault_config.get("path", "~/notes")
+    if vault_path == "ROOT_DIRECTORY_PATH":
         root_path = str(Path(__file__).resolve().parent.parent)
-        vault_config["path"] = root_path
-    elif vault_config.get("path") == "ROOT_DIRECTORY_PATH/dev":
+        vault_path = root_path
+    elif vault_path == "ROOT_DIRECTORY_PATH/dev":
         root_path = str(Path(__file__).resolve().parent.parent)
-        vault_config["path"] = root_path + "/dev"
+        vault_path = root_path + "/dev"
     
     db_path = database_config.get("path", "server/main.db")
-    if not Path(db_path).is_absolute():
-        db_path = str(Path(__file__).resolve().parent.parent / db_path)
+    
+    if "KMS_DATA_DIR" in os.environ:
+        data_dir = Path(os.environ["KMS_DATA_DIR"])
+        db_path = str(data_dir / "main.db")
+    elif "KMS_DB_PATH" in os.environ:
+        db_path = os.environ["KMS_DB_PATH"]
+    elif not Path(db_path).is_absolute():
+        if mode == "prod":
+            if "XDG_DATA_HOME" in os.environ:
+                data_dir = Path(os.environ["XDG_DATA_HOME"]) / "kms-capture"
+            else:
+                data_dir = Path.home() / ".local" / "share" / "kms-capture"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(data_dir / "main.db")
+        else:
+            db_path = str(Path(__file__).resolve().parent.parent / db_path)
+    
+    if "KMS_VAULT_PATH" in os.environ:
+        vault_path = os.environ["KMS_VAULT_PATH"]
     
     d = {
         "vault": {
-            "path": os.path.expanduser(vault_config.get("path") or "~/notes"),
+            "path": os.path.expanduser(vault_path),
             "capture_dir": vault_config.get("capture_dir") or "capture/raw_capture",
             "media_dir": vault_config.get("media_dir") or "capture/raw_capture/media",
         },
