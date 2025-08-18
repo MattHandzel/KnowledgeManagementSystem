@@ -251,7 +251,12 @@ if __name__ == "__main__":
     _config_path = args.config
     
     cfg = normalize_config(load_config(_config_path))
-    main_db = MainDatabase(cfg["database"]["path"])
+    
+    db_path = cfg["database"]["path"]
+    db_dir = Path(db_path).parent
+    db_dir.mkdir(parents=True, exist_ok=True)
+    
+    main_db = MainDatabase(db_path)
     
     if cfg.get("is_dev"):
         print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
