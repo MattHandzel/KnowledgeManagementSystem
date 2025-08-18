@@ -21,7 +21,7 @@ const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visib
   const [selectedIndex, setSelectedIndex] = useState(-1)
 
   useEffect(() => {
-    if (!visible || !query.trim()) {
+    if (!visible) {
       setSuggestions([])
       setSelectedIndex(-1)
       return
@@ -30,7 +30,8 @@ const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visib
     const fetchSuggestions = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`/api/suggestions/${fieldType}?query=${encodeURIComponent(query)}&limit=5`)
+        const queryParam = query.trim() ? `query=${encodeURIComponent(query)}&` : ''
+        const response = await fetch(`/api/suggestions/${fieldType}?${queryParam}limit=5`)
         const data = await response.json()
         setSuggestions(data.suggestions || [])
         setSelectedIndex(-1)

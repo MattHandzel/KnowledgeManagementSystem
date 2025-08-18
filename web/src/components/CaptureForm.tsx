@@ -64,9 +64,7 @@ const CaptureForm: React.FC<Props> = (p) => {
   }
 
   const handleContextFocus = () => {
-    if (p.context.trim()) {
-      setShowContextSuggestions(true)
-    }
+    setShowContextSuggestions(true)
   }
 
   const checkContextExists = async (value: string) => {
