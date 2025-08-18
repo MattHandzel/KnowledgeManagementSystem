@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import ReactMarkdown from 'react-markdown'
 import EntityChips from './EntityChips'
 import SuggestionDropdown from './SuggestionDropdown'
 
@@ -20,7 +19,6 @@ type Props = {
 const CaptureForm: React.FC<Props> = (p) => {
   const [showContextSuggestions, setShowContextSuggestions] = useState(false)
   const [contextColor, setContextColor] = useState('')
-  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
 
   useEffect(() => {
     loadPersistentValues()
@@ -82,31 +80,42 @@ const CaptureForm: React.FC<Props> = (p) => {
     }
   }
 
+  const renderInlineMarkdown = (text: string) => {
+    if (!text) return ''
+    
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<span class="md-bold">**$1**</span>')
+      .replace(/_(.*?)_/g, '<span class="md-italic">_$1_</span>')
+      .replace(/`(.*?)`/g, '<span class="md-code">`$1`</span>')
+      .replace(/^# (.*$)/gm, '<span class="md-h1"># $1</span>')
+      .replace(/^## (.*$)/gm, '<span class="md-h2">## $1</span>')
+      .replace(/^### (.*$)/gm, '<span class="md-h3">### $1</span>')
+      .replace(/\n/g, '<br>')
+  }
+
   return (
     <div className="form">
-      <div className="content-container">
-        <div className="content-header">
-          <button 
-            type="button"
-            onClick={() => setShowMarkdownPreview(!showMarkdownPreview)}
-            className="markdown-toggle"
-          >
-            {showMarkdownPreview ? 'Edit' : 'Preview'}
-          </button>
-        </div>
-        {showMarkdownPreview ? (
-          <div className="markdown-preview">
-            <ReactMarkdown>{p.content || '*No content to preview*'}</ReactMarkdown>
-          </div>
-        ) : (
-          <textarea 
-            value={p.content} 
-            onChange={e => p.setContent(e.target.value)} 
-            rows={10}
-            placeholder="Enter your content here... Use **bold** and _italic_ markdown formatting"
-          />
-        )}
-      </div>
+      <div
+        contentEditable
+        suppressContentEditableWarning={true}
+        onInput={(e) => {
+          const target = e.target as HTMLDivElement
+          p.setContent(target.textContent || '')
+        }}
+        onBlur={(e) => {
+          const target = e.target as HTMLDivElement
+          target.innerHTML = renderInlineMarkdown(p.content)
+        }}
+        onFocus={(e) => {
+          const target = e.target as HTMLDivElement
+          if (target.textContent !== p.content) {
+            target.textContent = p.content
+          }
+        }}
+        className="markdown-content-field"
+        style={{ minHeight: '200px', whiteSpace: 'pre-wrap' }}
+        dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(p.content) }}
+      />
       <div className="context-input-container">
         <input 
           value={p.context} 
