@@ -38,7 +38,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
-    setShowSuggestions(newValue.trim().length > 0)
+    setShowSuggestions(true)
     
     if (newValue.trim()) {
       checkValueExists(newValue.trim())
@@ -67,18 +67,22 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
     <div className="entity-chips">
       <label>{label}</label>
       <div className="chips-container">
-        {entities.map((entity, index) => (
-          <span key={index} className="chip">
-            {entity}
-            <button 
-              type="button" 
-              onClick={() => removeEntity(index)}
-              className="chip-remove"
-            >
-              ×
-            </button>
-          </span>
-        ))}
+        {entities.length > 0 && (
+          <div className="chips-row">
+            {entities.map((entity, index) => (
+              <span key={index} className="chip">
+                {entity}
+                <button 
+                  type="button" 
+                  onClick={() => removeEntity(index)}
+                  className="chip-remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="chip-input-container">
           <input
             type="text"
@@ -90,9 +94,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
               addEntity()
             }}
             onFocus={() => {
-              if (inputValue.trim()) {
-                setShowSuggestions(true)
-              }
+              setShowSuggestions(true)
             }}
             placeholder={entities.length === 0 ? placeholder : ''}
             className="chip-input"

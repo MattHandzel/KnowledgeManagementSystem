@@ -12,10 +12,11 @@ npm run dev
 ```
 
 **Development Mode Features:**
+
 - 🚧 DEV MODE banner displayed in application
 - Dark theme applied by default
 - All data stored in `dev/` folder (gitignored)
-- Database: `dev/main-dev.db`
+- Database: `dev/main.db`
 - Captures: `dev/capture/raw_capture/`
 - Media: `dev/capture/raw_capture/media/`
 - Terminal shows "🚧 RUNNING IN DEVELOPMENT MODE 🚧"
@@ -28,10 +29,11 @@ npm run prod
 ```
 
 **Production Mode Features:**
+
 - Clean interface with no dev indicators
 - Light theme applied by default
 - Data stored in production locations
-- Database: `server/main-prod.db`
+- Database: `server/main.db`
 - Captures: `~/notes/capture/raw_capture/`
 - Media: `~/notes/capture/raw_capture/media/`
 
@@ -43,6 +45,7 @@ npm run prod
 ### Database Isolation
 
 Development and production modes use completely separate databases:
+
 - Dev database is stored in the project's `dev/` folder
 - Prod database is stored in the `server/` folder
 - No data sharing between environments
@@ -54,7 +57,7 @@ Both dev and prod configs support theme customization:
 
 ```yaml
 theme:
-  mode: "dark"  # or "light"
+  mode: "dark" # or "light"
   accent_color: "#4c1d95"
   accent_hover: "#3730a3"
   accent_shadow: "rgba(76, 29, 149, 0.2)"
@@ -74,10 +77,10 @@ theme:
 ```
 KnowledgeManagementSystem/
 ├── dev/                          # Development data (gitignored)
-│   ├── main-dev.db              # Development database
+│   ├── main.db              # Development database
 │   └── capture/raw_capture/     # Development captures
 ├── server/
-│   └── main-prod.db             # Production database
+│   └── main.db             # Production database
 ├── config-dev.yaml              # Development configuration
 ├── config-prod.yaml             # Production configuration
 └── electron/
