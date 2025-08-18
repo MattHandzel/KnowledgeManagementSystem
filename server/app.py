@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import threading
 import asyncio
 from hypercorn.config import Config
@@ -28,6 +29,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+web_dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
+if web_dist_path.exists():
+    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
 
 main_db = None
 _config_path = None
