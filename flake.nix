@@ -108,12 +108,21 @@
           # Copy server backend
           cp -r server $out/lib/kms-electron/
 
-          # Copy web frontend source files for npm run dev
-          cp -r web $out/lib/kms-electron/
-          
-          # Install npm dependencies for frontend server
+          # Copy markdown_writer.py (required by server/app.py)
+          # cp server/markdown_writer.py $out/lib/kms-electron/
+
+          # Copy pre-built web frontend from the web-frontend derivation
+          mkdir -p $out/lib/kms-electron/web/dist
+          cp -r ${web-frontend}/* $out/lib/kms-electron/web/dist/
+
+          # Copy web source files for development (package.json, etc.)
+          cp web/package.json $out/lib/kms-electron/web/
+          cp -r web/src $out/lib/kms-electron/web/ || true
+          # cp -r web/public $out/lib/kms-electron/web/ || true
+
+          # Install web dependencies for development mode (npm run dev)
           cd $out/lib/kms-electron/web
-          npm install --production=false
+          npm install
           cd -
 
           # Copy config
@@ -220,7 +229,7 @@
 
         shellHook = ''
           echo "🚀 Knowledge Management System - Electron Development Environment"
-          echo ""
+          echo ""hten
           echo "Available commands:"
           echo "  cd server && python app.py           # Start backend"
           echo "  cd web && npm run dev                # Start frontend"
