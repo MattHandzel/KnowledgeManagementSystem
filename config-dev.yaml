@@ -1,7 +1,10 @@
 vault:
-  path: "ROOT_DIRECTORY_PATH"
-  capture_dir: "raw_capture"
-  media_dir: "raw_capture/media"
+  path: "ROOT_DIRECTORY_PATH/dev"
+  capture_dir: "capture/raw_capture"
+  media_dir: "capture/raw_capture/media"
+
+database:
+  path: "dev/main-dev.db"
 
 ui:
   clipboard_poll_ms: 200

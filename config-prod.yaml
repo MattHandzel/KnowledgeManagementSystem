@@ -3,6 +3,9 @@ vault:
   capture_dir: "capture/raw_capture"
   media_dir: "capture/raw_capture/media"
 
+database:
+  path: "server/main-prod.db"
+
 ui:
   clipboard_poll_ms: 200
 

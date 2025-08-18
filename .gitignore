@@ -6,3 +6,6 @@ server/__pycache__/
 # Database files
 *.db
 server/main.db
+
+# Development folder (excluded from version control)
+dev/

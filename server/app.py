@@ -29,9 +29,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-main_db = MainDatabase("main.db")
-
+main_db = None
 _config_path = None
+
+def get_main_db():
+    """Get the initialized main database instance."""
+    global main_db
+    if main_db is None:
+        cfg = normalize_config(load_config(_config_path))
+        main_db = MainDatabase(cfg["database"]["path"])
+    return main_db
 
 def load_config(config_path=None):
     if config_path:
@@ -52,16 +59,27 @@ def normalize_config(cfg):
     is_dev = mode == "dev"
     
     vault_config = cfg.get("vault", {})
+    database_config = cfg.get("database", {})
     
     if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
         root_path = str(Path(__file__).resolve().parent.parent)
         vault_config["path"] = root_path
+    elif vault_config.get("path") == "ROOT_DIRECTORY_PATH/dev":
+        root_path = str(Path(__file__).resolve().parent.parent)
+        vault_config["path"] = root_path + "/dev"
+    
+    db_path = database_config.get("path", "server/main.db")
+    if not Path(db_path).is_absolute():
+        db_path = str(Path(__file__).resolve().parent.parent / db_path)
     
     d = {
         "vault": {
             "path": os.path.expanduser(vault_config.get("path") or "~/notes"),
             "capture_dir": vault_config.get("capture_dir") or "capture/raw_capture",
             "media_dir": vault_config.get("media_dir") or "capture/raw_capture/media",
+        },
+        "database": {
+            "path": db_path,
         },
         "ui": cfg.get("ui", {}),
         "capture": cfg.get("capture", {}),
@@ -190,7 +208,7 @@ async def api_capture(
     
     p = writer.write_capture(capture)
     
-    main_db.store_capture_data(capture)
+    get_main_db().store_capture_data(capture)
     
     return JSONResponse({"saved_to": str(p)})
 
@@ -201,7 +219,7 @@ def api_suggestions(field_type: str, query: str = "", limit: int = 10):
     if field_type not in ['tag', 'source', 'context']:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
     
-    suggestions = main_db.get_suggestions(field_type, query, limit)
+    suggestions = get_main_db().get_suggestions(field_type, query, limit)
     return {
         "suggestions": [
             {
@@ -221,7 +239,7 @@ def api_suggestion_exists(field_type: str, value: str):
     if field_type not in ['tag', 'source', 'context']:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
     
-    exists = main_db.suggestion_exists(value, field_type)
+    exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
 
 
@@ -233,6 +251,8 @@ if __name__ == "__main__":
     _config_path = args.config
     
     cfg = normalize_config(load_config(_config_path))
+    main_db = MainDatabase(cfg["database"]["path"])
+    
     if cfg.get("is_dev"):
         print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
     
