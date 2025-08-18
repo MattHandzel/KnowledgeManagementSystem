@@ -31,6 +31,9 @@ app.add_middleware(
 )
 
 web_dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
+if not web_dist_path.exists():
+    web_dist_path = Path(__file__).resolve().parent / "web" / "dist"
+
 if web_dist_path.exists():
     app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
 
