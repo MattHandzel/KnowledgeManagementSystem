@@ -11,6 +11,7 @@ vault_dev:
 
 ui:
   clipboard_poll_ms: 200
+  use_icon_modalities: true
 
 theme:
   accent_color: "#4c1d95"

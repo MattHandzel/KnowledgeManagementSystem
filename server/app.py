@@ -210,7 +210,13 @@ async def api_capture(
     
     get_main_db().store_capture_data(capture)
     
-    return JSONResponse({"saved_to": str(p)})
+    import os
+    file_exists = os.path.exists(p) if p else False
+    
+    return JSONResponse({
+        "saved_to": str(p),
+        "verified": file_exists
+    })
 
 
 @app.get("/api/suggestions/{field_type}")

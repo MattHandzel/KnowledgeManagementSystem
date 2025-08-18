@@ -4,11 +4,20 @@ type Props = {
   modalities: string[]
   onToggle: (m: string) => void
   onScreenshot: () => void
+  useIcons?: boolean
 }
 
 const all = ['text','clipboard','screenshot','audio','system-audio']
 
-const ModalityBar: React.FC<Props> = ({ modalities, onToggle, onScreenshot }) => {
+const modalityIcons: Record<string, string> = {
+  text: '📝',
+  clipboard: '📋', 
+  screenshot: '📷',
+  audio: '🎤',
+  'system-audio': '🔊'
+}
+
+const ModalityBar: React.FC<Props> = ({ modalities, onToggle, onScreenshot, useIcons = false }) => {
   return (
     <div className="mods">
       {all.map((m, i) => (
@@ -16,9 +25,9 @@ const ModalityBar: React.FC<Props> = ({ modalities, onToggle, onScreenshot }) =>
           key={m}
           className={modalities.includes(m) ? 'active' : ''}
           onClick={() => m === 'screenshot' ? onScreenshot() : onToggle(m)}
-          title={`Ctrl+${i+1}`}
+          title={useIcons ? `${m} (Ctrl+${i+1})` : `Ctrl+${i+1}`}
         >
-          {m}
+          {useIcons ? modalityIcons[m] || m : m}
         </button>
       ))}
     </div>

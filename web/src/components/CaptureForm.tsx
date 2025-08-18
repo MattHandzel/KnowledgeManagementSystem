@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import EntityChips from './EntityChips'
 import SuggestionDropdown from './SuggestionDropdown'
 
@@ -19,6 +20,7 @@ type Props = {
 const CaptureForm: React.FC<Props> = (p) => {
   const [showContextSuggestions, setShowContextSuggestions] = useState(false)
   const [contextColor, setContextColor] = useState('')
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
 
   useEffect(() => {
     loadPersistentValues()
@@ -55,12 +57,17 @@ const CaptureForm: React.FC<Props> = (p) => {
   const handleContextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     p.setContext(newValue)
-    setShowContextSuggestions(newValue.trim().length > 0)
     
     if (newValue.trim()) {
       checkContextExists(newValue.trim())
     } else {
       setContextColor('')
+    }
+  }
+
+  const handleContextFocus = () => {
+    if (p.context.trim()) {
+      setShowContextSuggestions(true)
     }
   }
 
@@ -77,12 +84,34 @@ const CaptureForm: React.FC<Props> = (p) => {
 
   return (
     <div className="form">
-      <textarea value={p.content} onChange={e => p.setContent(e.target.value)} rows={10} />
+      <div className="content-container">
+        <div className="content-header">
+          <button 
+            type="button"
+            onClick={() => setShowMarkdownPreview(!showMarkdownPreview)}
+            className="markdown-toggle"
+          >
+            {showMarkdownPreview ? 'Edit' : 'Preview'}
+          </button>
+        </div>
+        {showMarkdownPreview ? (
+          <div className="markdown-preview">
+            <ReactMarkdown>{p.content || '*No content to preview*'}</ReactMarkdown>
+          </div>
+        ) : (
+          <textarea 
+            value={p.content} 
+            onChange={e => p.setContent(e.target.value)} 
+            rows={10}
+            placeholder="Enter your content here... Use **bold** and _italic_ markdown formatting"
+          />
+        )}
+      </div>
       <div className="context-input-container">
         <input 
           value={p.context} 
           onChange={handleContextChange}
-          onFocus={() => p.context.trim() && setShowContextSuggestions(true)}
+          onFocus={handleContextFocus}
           onBlur={() => setTimeout(() => setShowContextSuggestions(false), 200)}
           placeholder="Context"
           className=""
@@ -98,18 +127,18 @@ const CaptureForm: React.FC<Props> = (p) => {
       </div>
       <div className="tags-sources-row">
         <EntityChips
-          value={p.tags}
-          onChange={p.setTags}
-          placeholder="Tags"
-          label=""
-          fieldType="tag"
-        />
-        <EntityChips
           value={p.sources}
           onChange={p.setSources}
           placeholder="Sources"
           label=""
           fieldType="source"
+        />
+        <EntityChips
+          value={p.tags}
+          onChange={p.setTags}
+          placeholder="Tags"
+          label=""
+          fieldType="tag"
         />
       </div>
     </div>

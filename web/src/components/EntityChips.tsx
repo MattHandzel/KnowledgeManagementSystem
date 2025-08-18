@@ -89,7 +89,11 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
               setTimeout(() => setShowSuggestions(false), 200)
               addEntity()
             }}
-            onFocus={() => inputValue.trim() && setShowSuggestions(true)}
+            onFocus={() => {
+              if (inputValue.trim()) {
+                setShowSuggestions(true)
+              }
+            }}
             placeholder={entities.length === 0 ? placeholder : ''}
             className="chip-input"
             style={{ color: inputColor }}
@@ -99,7 +103,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             query={inputValue}
             onSelect={(value) => {
               setInputValue(value)
-              addEntity()
+              setShowSuggestions(false)
             }}
             visible={showSuggestions}
             onClose={() => setShowSuggestions(false)}

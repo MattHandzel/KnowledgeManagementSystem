@@ -7,7 +7,7 @@ import HelpOverlay from './components/HelpOverlay'
 
 type Config = {
   vault: { path: string; capture_dir: string; media_dir: string }
-  ui?: { clipboard_poll_ms?: number; show_help?: boolean }
+  ui?: { clipboard_poll_ms?: number; show_help?: boolean; use_icon_modalities?: boolean }
   capture?: Record<string, unknown>
   theme?: { mode?: string; accent_color?: string; accent_hover?: string; accent_shadow?: string }
   mode?: string
@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [modalities, setModalities] = useState<string[]>(['text'])
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [savedTo, setSavedTo] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
@@ -148,16 +148,16 @@ const App: React.FC = () => {
       })
       const r = await fetch('/api/capture', { method: 'POST', body: fd })
       const j = await r.json()
-      setSavedTo(j.saved_to || null)
-      setPopup({ type: 'success', message: `Saved to: ${j.saved_to}` })
-      resetForm()
-      if (j.saved_to) {
-        setTimeout(() => setSavedTo(null), 4000)
+      if (j.verified !== false) {
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 2000)
+        resetForm()
+      } else {
+        setPopup({ type: 'error', message: 'Save failed: File verification failed' })
       }
     } catch (error) {
       console.error('Save failed:', error)
       setPopup({ type: 'error', message: `Save failed: ${error instanceof Error ? error.message : 'Unknown error'}` })
-      setSavedTo(null)
     } finally {
       setSaving(false)
     }
@@ -180,7 +180,12 @@ const App: React.FC = () => {
           🚧 DEV MODE 🚧
         </div>
       )}
-      <ModalityBar modalities={modalities} onToggle={toggleModality} onScreenshot={onScreenshot} />
+      <ModalityBar 
+        modalities={modalities} 
+        onToggle={toggleModality} 
+        onScreenshot={onScreenshot}
+        useIcons={config?.ui?.use_icon_modalities || false}
+      />
       <CaptureForm
         content={content} setContent={setContent}
         context={context} setContext={setContext}
@@ -208,7 +213,11 @@ const App: React.FC = () => {
         />
       )}
       {help && <HelpOverlay onClose={() => setHelp(false)} />}
-      {savedTo && <div className="saved">Saved to {savedTo}</div>}
+      {saveSuccess && (
+        <div className="save-success">
+          <div className="checkmark">✓</div>
+        </div>
+      )}
       {popup && (
         <div className={`popup ${popup.type}`} onClick={() => setPopup(null)}>
           {popup.message}
