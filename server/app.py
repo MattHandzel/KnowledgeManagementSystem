@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -30,24 +31,31 @@ app.add_middleware(
 
 main_db = MainDatabase("main.db")
 
-def load_config():
-    cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
+_config_path = None
+
+def load_config(config_path=None):
+    if config_path:
+        cfg_path = Path(config_path)
+        if not cfg_path.is_absolute():
+            cfg_path = Path(__file__).resolve().parent / config_path
+    else:
+        cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    
     if not cfg_path.exists():
         return {}
     with cfg_path.open("r") as f:
         return yaml.safe_load(f) or {}
 
 def normalize_config(cfg):
-    mode = os.environ.get('KMS_MODE', 'prod').lower()
-    is_dev = mode == 'dev'
+    dev_config = cfg.get("development", {})
+    mode = dev_config.get("mode", "prod")
+    is_dev = mode == "dev"
     
-    if is_dev:
-        vault_config = cfg.get("vault_dev", cfg.get("vault", {}))
+    vault_config = cfg.get("vault", {})
+    
+    if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
         root_path = str(Path(__file__).resolve().parent.parent)
-        if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
-            vault_config["path"] = root_path
-    else:
-        vault_config = cfg.get("vault", {})
+        vault_config["path"] = root_path
     
     d = {
         "vault": {
@@ -66,7 +74,7 @@ def normalize_config(cfg):
 
 @app.get("/api/config")
 def api_config():
-    cfg = normalize_config(load_config())
+    cfg = normalize_config(load_config(_config_path))
     return cfg
 
 @app.get("/api/clipboard")
@@ -86,7 +94,7 @@ def api_screenshot():
     """Trigger grim screenshot capture."""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-        cfg = normalize_config(load_config())
+        cfg = normalize_config(load_config(_config_path))
         media_dir = Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"]
         media_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = media_dir / f"{timestamp}_screenshot.png"
@@ -102,21 +110,13 @@ def api_screenshot():
 
 def _validate_modalities_have_content(capture_data, modalities):
     """Validate that selected modalities have actual content."""
-    print(f"DEBUG: Validating modalities: {modalities}")
-    print(f"DEBUG: Capture data keys: {list(capture_data.keys())}")
-    print(f"DEBUG: Content value: '{capture_data.get('content', '')}'")
-    
     if not modalities:
-        print("DEBUG: No modalities provided")
         return False
     
     for modality in modalities:
-        print(f"DEBUG: Checking modality: {modality}")
         if modality == "text":
             content = capture_data.get("content", "").strip()
-            print(f"DEBUG: Text content after strip: '{content}'")
             if not content:
-                print("DEBUG: Text modality validation failed - no content")
                 return False
         elif modality == "clipboard":
             pass
@@ -130,7 +130,6 @@ def _validate_modalities_have_content(capture_data, modalities):
             if not capture_data.get("media_files"):
                 return False
     
-    print("DEBUG: All modality validations passed")
     return True
 
 @app.post("/api/capture")
@@ -147,7 +146,7 @@ async def api_capture(
     last_edited_date: Optional[str] = Form(None),
     media: Optional[List[UploadFile]] = File(None),
 ):
-    cfg = normalize_config(load_config())
+    cfg = normalize_config(load_config(_config_path))
     writer = SafeMarkdownWriter(str(Path(cfg["vault"]["path"]).expanduser()))
     ts = datetime.now(timezone.utc)
     ts_str = ts.replace(microsecond=0).isoformat()
@@ -227,13 +226,19 @@ def api_suggestion_exists(field_type: str, value: str):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Knowledge Management System Server')
+    parser.add_argument('--config', type=str, help='Path to config file')
+    args = parser.parse_args()
+    
+    _config_path = args.config
+    
+    cfg = normalize_config(load_config(_config_path))
+    if cfg.get("is_dev"):
+        print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
+    
     config = Config()
     config.bind = [f"0.0.0.0:{int(os.environ.get('PORT', '7123'))}"]
     config.use_reloader = False
     config.accesslog = "-"
-    
-    mode = os.environ.get('KMS_MODE', 'prod').lower()
-    if mode == 'dev':
-        print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
     
     asyncio.run(serve(app, config))

@@ -9,7 +9,7 @@ type Config = {
   vault: { path: string; capture_dir: string; media_dir: string }
   ui?: { clipboard_poll_ms?: number; show_help?: boolean }
   capture?: Record<string, unknown>
-  theme?: { accent_color?: string; accent_hover?: string; accent_shadow?: string }
+  theme?: { mode?: string; accent_color?: string; accent_hover?: string; accent_shadow?: string }
   mode?: string
   is_dev?: boolean
 }
@@ -35,6 +35,12 @@ const App: React.FC = () => {
         if (config.theme.accent_color) root.style.setProperty('--accent-color', config.theme.accent_color)
         if (config.theme.accent_hover) root.style.setProperty('--accent-hover', config.theme.accent_hover)
         if (config.theme.accent_shadow) root.style.setProperty('--accent-shadow', config.theme.accent_shadow)
+        
+        if (config.theme.mode === 'dark') {
+          root.setAttribute('data-theme', 'dark')
+        } else {
+          root.removeAttribute('data-theme')
+        }
       }
     }).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
   }, [])

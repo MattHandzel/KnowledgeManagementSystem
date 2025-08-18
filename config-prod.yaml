@@ -1,0 +1,30 @@
+vault:
+  path: "~/notes"
+  capture_dir: "capture/raw_capture"
+  media_dir: "capture/raw_capture/media"
+
+ui:
+  clipboard_poll_ms: 200
+
+theme:
+  mode: "light"
+  accent_color: "#4c1d95"
+  accent_hover: "#3730a3"
+  accent_shadow: "rgba(76, 29, 149, 0.2)"
+  background_color: "#ffffff"
+  text_color: "#1f2937"
+  input_background: "#ffffff"
+  input_border: "#d1d5db"
+
+capture:
+  auto_detect_modalities: true
+  context_suggestions: true
+  tag_suggestions: true
+  sources_suggestions: true
+  geolocation_enabled: true
+  max_content_length: 10000
+
+development:
+  debug_logging: false
+  test_mode: false
+  mode: "prod"

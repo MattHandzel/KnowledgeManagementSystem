@@ -9,9 +9,11 @@ let frontendProcess;
 function startBackendServer() {
   const serverPath = path.join(__dirname, "..", "server");
   const pythonPath = process.platform === "win32" ? "python" : "python3";
+  
+  const configFile = process.env.npm_lifecycle_event === 'dev' ? '../config-dev.yaml' : '../config-prod.yaml';
 
   // TODO: Check to see if the backend server is already running, if so, don't bother spawning.
-  serverProcess = spawn(pythonPath, ["app.py"], {
+  serverProcess = spawn(pythonPath, ["app.py", "--config", configFile], {
     cwd: serverPath,
     stdio: "inherit",
     env: { ...process.env, PYTHONPATH: serverPath },
