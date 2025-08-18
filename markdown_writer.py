@@ -36,7 +36,7 @@ class SafeMarkdownWriter:
 
         formatted_content = self.format_capture(capture_data)
 
-        return self.atomic_write_new(idea_file, formatted_content)
+        return self.atomic_write(idea_file, formatted_content)
 
     def get_idea_file(
         self,
@@ -100,27 +100,12 @@ class SafeMarkdownWriter:
                 except Exception as e:
                     print(f"Warning: Could not remove backup {old_backup}: {e}")
 
-    def atomic_write_new(self, target_file: Path, content: str) -> Path:
+    def atomic_write(self, target_file: Path, content: str) -> Path:
         """Perform atomic write operation for new file creation."""
         temp_file = target_file.with_suffix(".tmp")
 
         try:
             with temp_file.open("w", encoding="utf-8") as f:
-                f.write(content)
-
-            temp_file.replace(target_file)
-            return target_file
-
-        except Exception as e:
-            temp_file.unlink(missing_ok=True)
-            raise Exception(f"Failed to write capture: {e}")
-
-    def atomic_write(self, target_file: Path, content: str) -> Path:
-        """Perform atomic write operation with rollback on failure."""
-        temp_file = target_file.with_suffix(".tmp")
-
-        try:
-            with temp_file.open("a", encoding="utf-8") as f:
                 f.write(content)
 
             temp_file.replace(target_file)
