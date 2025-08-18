@@ -29,7 +29,7 @@
 body { font-family: system-ui, sans-serif; margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color); overflow-x: hidden; }
 body::-webkit-scrollbar { display: none; }
 body { -ms-overflow-style: none; scrollbar-width: none; }
-.container { max-width: 700px; margin: 0 auto; padding: 8px; background: var(--container-bg); min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden; }
+.container {  margin: 0 auto; padding: 8px; background: var(--container-bg); min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow-x: hidden; }
 .form { background: var(--form-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); }
 .form textarea, .form input { width: 100%; padding: 6px; margin-bottom: 6px; border-radius: 4px; border: 2px solid var(--border-color); background: var(--input-bg); color: var(--text-color); font-size: 14px; transition: all 0.3s ease; box-sizing: border-box; transform: translateY(0); }
 .form textarea:focus, .form input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px var(--accent-shadow); transform: translateY(-1px); }
