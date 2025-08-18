@@ -73,33 +73,6 @@ class SafeMarkdownWriter:
                 return idea_file
             counter += 1
 
-    def create_backup(self, file_path: Path) -> Path:
-        """Create a timestamped backup of the file."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = file_path.with_suffix(f".backup.{timestamp}")
-
-        try:
-            shutil.copy2(file_path, backup_path)
-            self.cleanup_old_backups(file_path)
-            return backup_path
-        except Exception as e:
-            print(f"Warning: Could not create backup: {e}")
-            return file_path
-
-    def cleanup_old_backups(self, original_file: Path, keep_count: int = 5):
-        """Clean up old backup files, keeping only the most recent ones."""
-        backup_pattern = f"{original_file.stem}.backup.*"
-        backup_files = list(original_file.parent.glob(backup_pattern))
-
-        if len(backup_files) > keep_count:
-            backup_files.sort(key=lambda f: f.stat().st_mtime)
-
-            for old_backup in backup_files[:-keep_count]:
-                try:
-                    old_backup.unlink()
-                except Exception as e:
-                    print(f"Warning: Could not remove backup {old_backup}: {e}")
-
     def atomic_write(self, target_file: Path, content: str) -> Path:
         """Perform atomic write operation for new file creation."""
         temp_file = target_file.with_suffix(".tmp")
