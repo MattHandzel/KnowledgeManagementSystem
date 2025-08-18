@@ -7,7 +7,7 @@ import HelpOverlay from './components/HelpOverlay'
 
 type Config = {
   vault: { path: string; capture_dir: string; media_dir: string }
-  ui?: { clipboard_poll_ms?: number; show_help?: boolean; use_icon_modalities?: boolean }
+  ui?: { clipboard_poll_ms?: number; show_help?: boolean; use_modality_icons?: boolean }
   capture?: Record<string, unknown>
   theme?: { mode?: string; accent_color?: string; accent_hover?: string; accent_shadow?: string }
   mode?: string
@@ -184,7 +184,7 @@ const App: React.FC = () => {
         modalities={modalities} 
         onToggle={toggleModality} 
         onScreenshot={onScreenshot}
-        useIcons={config?.ui?.use_icon_modalities || false}
+        useIcons={config?.ui?.use_modality_icons || false}
       />
       <CaptureForm
         content={content} setContent={setContent}
