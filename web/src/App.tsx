@@ -296,16 +296,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isNative() && (
-        <div style={{ marginBottom: '8px' }}>
-          <button onClick={async () => {
-            const ok = await pickVaultDirectory()
-            if (!ok) setPopup({ type: 'error', message: 'Directory selection canceled or failed' })
-          }}>
-            Pick Notes Directory
-          </button>
-        </div>
-      )}
 
       {modalities.includes('clipboard') && <ClipboardPreview intervalMs={pollMs} />}
       {modalities.includes('audio') && (
