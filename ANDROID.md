@@ -48,14 +48,21 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
    - Media dir: capture/raw_capture/media
 4) Create a note with text, clipboard, image/screenshot, and/or audio, then Save. The app writes:
    - Markdown to {vault}/capture/raw_capture/{capture_id}.md
+## Permissions
+
+- The app requests and grants WebView permissions at runtime (e.g., microphone, camera) via the WebView’s permission request handler.
+- CAMERA permission is declared to support image capture/selection from within the WebView.
+- File inputs in the WebView are supported for images (e.g., when attaching a screenshot/photo), opening the system picker.
+
+
    - Media to {vault}/capture/raw_capture/media/{filename}
 
 ## Modalities
 
 - Text: use main input
 - Clipboard: enable and it will include current clipboard if permission allows
-- Image/Screenshot: tap Screenshot; on Android it opens camera/gallery picker and attaches the selected image
-- Audio: TODO: wire native microphone recorder, currently relies on desktop backend for waveform/WS; Android build accepts file attachments, and can be extended to record and attach audio
+- Image/Screenshot: tap Screenshot; on Android it opens the native file chooser (image/*) and can attach a captured or selected image
+- Audio: TODO: wire native microphone recorder (permission flow now supported via WebView); for now, audio can be attached as a file and will be saved into the media folder
 
 ## Notes on Coupling and Shared Logic
 
