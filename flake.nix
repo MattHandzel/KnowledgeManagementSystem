@@ -24,6 +24,9 @@
           pydantic
           python-multipart
           pyyaml
+          numpy
+          sounddevice
+          websockets
         ]);
 
       webBuild = pkgs.buildNpmPackage {
@@ -79,6 +82,7 @@
         buildInputs = with pkgs; [
           electron
           pythonEnv
+          portaudio
         ];
 
         buildPhase = ''
@@ -200,6 +204,7 @@
           nodePackages.npm
           pythonEnv
           electron
+          portaudio
         ];
 
         shellHook = ''
