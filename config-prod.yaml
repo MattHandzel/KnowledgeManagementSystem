@@ -4,7 +4,7 @@ vault:
   media_dir: "capture/raw_capture/media"
 
 database:
-  path: "server/main.db"
+  path: "~/.kms-capture/main.db"
 
 ui:
   clipboard_poll_ms: 200
