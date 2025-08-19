@@ -82,7 +82,7 @@ jobs:
       - name: Run frontend tests
         run: |
           nix develop --command bash -c "
-            cd web && npm test
+            cd web && npm install && npm test
           "
 
       - name: Build frontend
