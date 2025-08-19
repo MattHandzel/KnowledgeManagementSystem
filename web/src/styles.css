@@ -283,7 +283,7 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   position: relative;
 }
 .clipboard .title::before {
-  content: '📋';
+  content: '\1F4CB';
   margin-right: 8px;
   font-size: 16px;
 }
