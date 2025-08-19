@@ -59,5 +59,9 @@ def profile(base="http://localhost:7123"):
 
 if __name__ == "__main__":
     import json
+    import argparse
 
-    print(json.dumps(profile(), indent=2))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base", default="http://localhost:7123")
+    args = parser.parse_args()
+    print(json.dumps(profile(args.base), indent=2))

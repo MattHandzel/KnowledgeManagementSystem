@@ -167,6 +167,10 @@ async fn api_audio_status(Path(recorder_id): Path<String>) -> impl IntoResponse 
     }))
 }
 
+pub fn start_server() -> SocketAddr {
+    spawn_server()
+}
+
 fn spawn_server() -> SocketAddr {
     let addr: SocketAddr = "127.0.0.1:14321".parse().unwrap();
     if SERVER_ADDR.get().is_some() {
