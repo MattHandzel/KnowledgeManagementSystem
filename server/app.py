@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import threading
 import asyncio
 from hypercorn.config import Config
@@ -29,6 +30,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+web_dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
+if not web_dist_path.exists():
+    web_dist_path = Path(__file__).resolve().parent / "web" / "dist"
+
 main_db = None
 _config_path = None
 
@@ -44,7 +49,7 @@ def load_config(config_path=None):
     if config_path:
         cfg_path = Path(config_path)
         if not cfg_path.is_absolute():
-            cfg_path = Path(__file__).resolve().parent / config_path
+            cfg_path = Path(__file__).resolve().parent.parent / config_path
     else:
         cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
     
@@ -61,20 +66,38 @@ def normalize_config(cfg):
     vault_config = cfg.get("vault", {})
     database_config = cfg.get("database", {})
     
-    if vault_config.get("path") == "ROOT_DIRECTORY_PATH":
+    vault_path = vault_config.get("path", "~/notes")
+    if vault_path == "ROOT_DIRECTORY_PATH":
         root_path = str(Path(__file__).resolve().parent.parent)
-        vault_config["path"] = root_path
-    elif vault_config.get("path") == "ROOT_DIRECTORY_PATH/dev":
+        vault_path = root_path
+    elif vault_path == "ROOT_DIRECTORY_PATH/dev":
         root_path = str(Path(__file__).resolve().parent.parent)
-        vault_config["path"] = root_path + "/dev"
+        vault_path = root_path + "/dev"
     
     db_path = database_config.get("path", "server/main.db")
-    if not Path(db_path).is_absolute():
-        db_path = str(Path(__file__).resolve().parent.parent / db_path)
+    
+    if "KMS_DATA_DIR" in os.environ:
+        data_dir = Path(os.environ["KMS_DATA_DIR"])
+        db_path = str(data_dir / "main.db")
+    elif "KMS_DB_PATH" in os.environ:
+        db_path = os.environ["KMS_DB_PATH"]
+    elif not Path(db_path).is_absolute():
+        if mode == "prod":
+            if "XDG_DATA_HOME" in os.environ:
+                data_dir = Path(os.environ["XDG_DATA_HOME"]) / "kms-capture"
+            else:
+                data_dir = Path.home() / ".local" / "share" / "kms-capture"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(data_dir / "main.db")
+        else:
+            db_path = str(Path(__file__).resolve().parent.parent / db_path)
+    
+    if "KMS_VAULT_PATH" in os.environ:
+        vault_path = os.environ["KMS_VAULT_PATH"]
     
     d = {
         "vault": {
-            "path": os.path.expanduser(vault_config.get("path") or "~/notes"),
+            "path": os.path.expanduser(vault_path),
             "capture_dir": vault_config.get("capture_dir") or "capture/raw_capture",
             "media_dir": vault_config.get("media_dir") or "capture/raw_capture/media",
         },
@@ -247,6 +270,16 @@ def api_suggestion_exists(field_type: str, value: str):
     
     exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
+
+if web_dist_path.exists():
+    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
+
+
+@app.get("/api/recent-values")
+def api_recent_values():
+    """Get the most recent values for field restoration."""
+    recent_values = get_main_db().get_most_recent_values()
+    return {"recent_values": recent_values}
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ capture:
   context_suggestions: true
   tag_suggestions: true
   sources_suggestions: true
+  restore_previous_fields: true
   geolocation_enabled: true
   max_content_length: 10000
 

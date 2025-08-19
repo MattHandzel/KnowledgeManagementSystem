@@ -26,28 +26,17 @@
           pyyaml
         ]);
 
-      webBuild = pkgs.stdenv.mkDerivation {
+      webBuild = pkgs.buildNpmPackage {
         pname = "kms-web-build";
         version = "1.0.0";
 
         src = ./web;
 
-        nativeBuildInputs = with pkgs; [
-          nodejs_20
-          nodePackages.npm
-        ];
+        npmDepsHash = "sha256-jVm5fiVhzpdQ4PgIMPDUutkqFFNX7GLL/xTCId5bfQM=";
 
         buildPhase = ''
           echo "=== Starting React frontend build ==="
-          export HOME=$TMPDIR
-          export npm_config_cache=$TMPDIR/.npm
-
-          echo "Installing npm dependencies..."
-          npm ci --verbose
-
-          echo "Building React app with Vite..."
           npm run build --verbose
-
           echo "=== Frontend build completed ==="
         '';
 
@@ -55,7 +44,24 @@
           mkdir -p $out
           cp -r dist/* $out/
         '';
-        __impureHostDeps = ["/etc/resolv.conf" "/etc/hosts"];
+      };
+
+      electronDeps = pkgs.buildNpmPackage {
+        pname = "kms-electron-deps";
+        version = "1.0.0";
+
+        src = ./electron;
+
+        npmDepsHash = "sha256-DPdeOcPiklVZ36xPcEdMx3yAMJdOV06A91PejTYo5D0=";
+
+        dontBuild = true;
+        
+        npmFlags = [ "--ignore-scripts" ];
+
+        installPhase = ''
+          mkdir -p $out
+          cp -r node_modules $out/
+        '';
       };
 
       kms-capture = pkgs.stdenv.mkDerivation {
@@ -77,14 +83,10 @@
 
         buildPhase = ''
           echo "=== Starting kms-capture package build ==="
-          export HOME=$TMPDIR
-          export npm_config_cache=$TMPDIR/.npm
-
-          echo "Installing Electron dependencies..."
-          cd electron
-          npm ci --verbose
-          cd ..
-
+          
+          echo "Copying pre-built Electron dependencies..."
+          cp -r ${electronDeps}/node_modules electron/
+          
           echo "=== Package build phase completed ==="
         '';
 
@@ -95,6 +97,9 @@
 
           echo "Copying Python backend server files..."
           cp -r server $out/lib/kms-capture/
+          
+          echo "Copying Python modules..."
+          cp *.py $out/lib/kms-capture/
 
           echo "Copying built React frontend assets..."
           mkdir -p $out/lib/kms-capture/web/dist
@@ -113,8 +118,12 @@
           #!/bin/bash
           set -e
 
-          export KMS_ROOT="$out/lib/kms-capture"
-          export PYTHONPATH="$KMS_ROOT/server:$PYTHONPATH"
+          export KMS_ROOT="$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kms-capture"
+          export PYTHONPATH="$KMS_ROOT:$KMS_ROOT/server:$PYTHONPATH"
+
+          # Set up writable data directory for production
+          export KMS_DATA_DIR="''${KMS_DATA_DIR:-$HOME/.local/share/kms-capture}"
+          mkdir -p "$KMS_DATA_DIR"
 
           cd "$KMS_ROOT"
 
@@ -172,12 +181,13 @@
           platforms = platforms.linux;
           maintainers = [];
         };
-        __impureHostDeps = ["/etc/resolv.conf" "/etc/hosts"];
       };
     in {
       packages = {
         default = kms-capture;
         kms-capture = kms-capture;
+        webBuild = webBuild;
+        electronDeps = electronDeps;
       };
 
       apps = {

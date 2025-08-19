@@ -26,26 +26,27 @@ const CaptureForm: React.FC<Props> = (p) => {
 
   const loadPersistentValues = async () => {
     try {
-      const [tagsRes, sourcesRes, contextRes] = await Promise.all([
-        fetch('/api/suggestions/tag?limit=1'),
-        fetch('/api/suggestions/source?limit=1'),
-        fetch('/api/suggestions/context?limit=1')
-      ])
+      const configRes = await fetch('/api/config')
+      const config = await configRes.json()
       
-      const [tagsData, sourcesData, contextData] = await Promise.all([
-        tagsRes.json(),
-        sourcesRes.json(),
-        contextRes.json()
-      ])
+      if (!config.capture?.restore_previous_fields) {
+        return
+      }
       
-      if (tagsData.suggestions?.length > 0 && !p.tags) {
-        p.setTags(tagsData.suggestions[0].value)
+      const recentRes = await fetch('/api/recent-values')
+      const recentData = await recentRes.json()
+      const recentValues = recentData.recent_values || {}
+      
+      if (recentValues.tags?.length > 0 && !p.tags) {
+        p.setTags(recentValues.tags.join(', '))
       }
-      if (sourcesData.suggestions?.length > 0 && !p.sources) {
-        p.setSources(sourcesData.suggestions[0].value)
+      
+      if (recentValues.sources?.length > 0 && !p.sources) {
+        p.setSources(recentValues.sources.join(', '))
       }
-      if (contextData.suggestions?.length > 0 && !p.context) {
-        p.setContext(contextData.suggestions[0].value)
+      
+      if (recentValues.context?.length > 0 && !p.context) {
+        p.setContext(recentValues.context[0])
       }
     } catch (error) {
       console.error('Failed to load persistent values:', error)
