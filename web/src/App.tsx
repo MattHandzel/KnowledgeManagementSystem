@@ -175,17 +175,6 @@ const App: React.FC = () => {
             const base64 = res.split(',')[1] || ''
             resolve({ name: f.name, type: (f as any).type || undefined, dataBase64: base64 })
           }
-      {isNative() && (
-        <div style={{ marginBottom: '8px' }}>
-          <button onClick={async () => {
-            const ok = await pickVaultDirectory()
-            if (!ok) setPopup({ type: 'error', message: 'Directory selection canceled or failed' })
-          }}>
-            Pick Notes Directory
-          </button>
-        </div>
-      )}
-
           reader.onerror = () => reject(reader.error)
           reader.readAsDataURL(f)
         })))
@@ -273,9 +262,21 @@ const App: React.FC = () => {
         tags={tags} setTags={setTags}
         sources={sources} setSources={setSources}
         onFiles={onFiles}
+
         saving={saving}
         onSave={handleSave}
       />
+      {isNative() && (
+        <div style={{ marginBottom: '8px' }}>
+          <button onClick={async () => {
+            const ok = await pickVaultDirectory()
+            if (!ok) setPopup({ type: 'error', message: 'Directory selection canceled or failed' })
+          }}>
+            Pick Notes Directory
+          </button>
+        </div>
+      )}
+
       {modalities.includes('clipboard') && <ClipboardPreview intervalMs={pollMs} />}
       {modalities.includes('audio') && (
         <AudioRecorder 
