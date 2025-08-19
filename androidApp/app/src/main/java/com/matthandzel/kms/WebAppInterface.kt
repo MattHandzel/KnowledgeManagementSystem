@@ -11,9 +11,25 @@ import android.webkit.MimeTypeMap
 import androidx.documentfile.provider.DocumentFile
 
 class WebAppInterface(private val activity: Activity) {
+    companion object {
+        private const val PREFS_NAME = "kms_prefs"
+        private const val KEY_VAULT_URI = "vault_tree_uri"
+    }
+
     private var vaultTreeUri: Uri? = null
     private var captureDirRel = "capture/raw_capture"
     private var mediaDirRel = "capture/raw_capture/media"
+
+    init {
+        val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val uriStr = prefs.getString(KEY_VAULT_URI, null)
+        if (uriStr != null) {
+            try {
+                vaultTreeUri = Uri.parse(uriStr)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     @JavascriptInterface
     fun pickVaultDirectory(): String {
@@ -34,6 +50,8 @@ class WebAppInterface(private val activity: Activity) {
 
     fun setVaultTree(uri: Uri) {
         vaultTreeUri = uri
+        val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_VAULT_URI, uri.toString()).apply()
     }
 
     @JavascriptInterface
