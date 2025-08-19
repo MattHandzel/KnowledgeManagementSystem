@@ -14,7 +14,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 mod config;
 mod db;
-mod markdown;
+pub mod markdown;
 
 static SERVER_ADDR: OnceCell<SocketAddr> = OnceCell::new();
 
