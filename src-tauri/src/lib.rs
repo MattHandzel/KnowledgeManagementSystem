@@ -42,8 +42,16 @@ async fn api_suggestions(Path(field_type): Path<String>, Query(q): Query<HashMap
     }
     let query = q.get("query").cloned().unwrap_or_default();
     let limit = q.get("limit").and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    let res = db::get_suggestions(&field_type, &query, limit);
-    Json(res).into_response()
+    let items = db::get_suggestions(&field_type, &query, limit);
+    let suggestions: Vec<serde_json::Value> = items.into_iter().map(|s| {
+        serde_json::json!({
+            "value": s.value,
+            "count": s.count,
+            "last_used": s.last_used,
+            "color": s.color
+        })
+    }).collect();
+    Json(serde_json::json!({ "suggestions": suggestions })).into_response()
 }
 
 async fn api_suggestion_exists(Path(field_type): Path<String>, Query(q): Query<HashMap<String, String>>) -> impl IntoResponse {
