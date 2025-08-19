@@ -12,15 +12,15 @@ use axum::{
 use std::collections::HashMap;
 use tower_http::cors::{Any, CorsLayer};
 
+mod config;
+mod db;
+mod markdown;
+
 static SERVER_ADDR: OnceCell<SocketAddr> = OnceCell::new();
 
 async fn api_config() -> impl IntoResponse {
-    let json = serde_json::json!({
-        "vault": { "path": "", "capture_dir": "", "media_dir": "" },
-        "ui": { "clipboard_poll_ms": 200 },
-        "is_dev": true
-    });
-    Json(json)
+    let cfg = config::load_config();
+    Json(cfg)
 }
 
 async fn api_clipboard() -> impl IntoResponse {
@@ -32,28 +32,32 @@ async fn api_screenshot() -> impl IntoResponse {
 }
 
 async fn api_capture() -> impl IntoResponse {
-    Json(serde_json::json!({ "saved_to": "", "verified": true }))
+    let res = markdown::write_capture();
+    Json(res)
 }
 
 async fn api_suggestions(Path(field_type): Path<String>, Query(q): Query<HashMap<String, String>>) -> impl IntoResponse {
     if field_type != "tag" && field_type != "source" && field_type != "context" {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "Invalid field type" }))).into_response();
     }
-    let _query = q.get("query").cloned().unwrap_or_default();
-    let _limit = q.get("limit").and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    Json(serde_json::json!({ "suggestions": [] })).into_response()
+    let query = q.get("query").cloned().unwrap_or_default();
+    let limit = q.get("limit").and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
+    let res = db::get_suggestions(&field_type, &query, limit);
+    Json(res).into_response()
 }
 
 async fn api_suggestion_exists(Path(field_type): Path<String>, Query(q): Query<HashMap<String, String>>) -> impl IntoResponse {
     if field_type != "tag" && field_type != "source" && field_type != "context" {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "Invalid field type" }))).into_response();
     }
-    let _value = q.get("value").cloned().unwrap_or_default();
-    Json(serde_json::json!({ "exists": false })).into_response()
+    let value = q.get("value").cloned().unwrap_or_default();
+    let res = db::suggestion_exists(&field_type, &value);
+    Json(res).into_response()
 }
 
 async fn api_recent_values() -> impl IntoResponse {
-    Json(serde_json::json!({ "recent_values": {} }))
+    let res = db::recent_values();
+    Json(res)
 }
 
 async fn api_audio_start() -> impl IntoResponse {
