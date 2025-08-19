@@ -24,11 +24,35 @@ async fn api_config() -> impl IntoResponse {
 }
 
 async fn api_clipboard() -> impl IntoResponse {
+    use std::process::Command;
+    let output = Command::new("wl-paste").arg("-t").arg("text").output();
+    if let Ok(out) = output {
+        if out.status.success() {
+            let content = String::from_utf8_lossy(&out.stdout).to_string();
+            return Json(serde_json::json!({ "content": content, "type": "text" }));
+        }
+    }
     Json(serde_json::json!({ "content": "", "type": "text" }))
 }
 
 async fn api_screenshot() -> impl IntoResponse {
-    Json(serde_json::json!({ "success": true, "path": "" }))
+    use std::{process::Command, fs};
+    let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S_%3f").to_string();
+    let cfg = config::load_config();
+    let media_dir = std::path::PathBuf::from(&cfg.vault.path).join(&cfg.vault.media_dir);
+    let _ = fs::create_dir_all(&media_dir);
+    let path = media_dir.join(format!("{}_screenshot.png", ts));
+    let res = Command::new("grim").arg(path.to_string_lossy().to_string()).output();
+    match res {
+        Ok(out) if out.status.success() => {
+            Json(serde_json::json!({ "path": path.to_string_lossy(), "success": true }))
+        }
+        Ok(out) => {
+            let err = String::from_utf8_lossy(&out.stderr).to_string();
+            Json(serde_json::json!({ "success": false, "error": if err.is_empty() { "Screenshot failed" } else { err.as_str() } }))
+        }
+        Err(e) => Json(serde_json::json!({ "success": false, "error": e.to_string() })),
+    }
 }
 
 #[derive(serde::Deserialize)]
