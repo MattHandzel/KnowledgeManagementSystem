@@ -3,6 +3,9 @@ server/__pycache__/markdown_writer.cpython-313.pyc
 __pycache__
 server/__pycache__/
 
+# Python virtual environment
+.venv/
+
 # Database files
 *.db
 server/main.db
