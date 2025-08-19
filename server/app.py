@@ -49,7 +49,7 @@ def load_config(config_path=None):
     if config_path:
         cfg_path = Path(config_path)
         if not cfg_path.is_absolute():
-            cfg_path = Path(__file__).resolve().parent.parent / config_path
+            cfg_path = Path.cwd() / config_path
     else:
         cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
     
@@ -95,6 +95,8 @@ def normalize_config(cfg):
     if "KMS_VAULT_PATH" in os.environ:
         vault_path = os.environ["KMS_VAULT_PATH"]
     
+    capture_config = cfg.get("capture", {})
+    
     d = {
         "vault": {
             "path": os.path.expanduser(vault_path),
@@ -105,7 +107,7 @@ def normalize_config(cfg):
             "path": db_path,
         },
         "ui": cfg.get("ui", {}),
-        "capture": cfg.get("capture", {}),
+        "capture": capture_config,
         "keybindings": cfg.get("keybindings", {}),
         "theme": cfg.get("theme", {}),
         "mode": mode,
@@ -271,15 +273,14 @@ def api_suggestion_exists(field_type: str, value: str):
     exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
 
-if web_dist_path.exists():
-    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
-
-
 @app.get("/api/recent-values")
 def api_recent_values():
     """Get the most recent values for field restoration."""
     recent_values = get_main_db().get_most_recent_values()
     return {"recent_values": recent_values}
+
+if web_dist_path.exists():
+    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
 
 
 if __name__ == "__main__":

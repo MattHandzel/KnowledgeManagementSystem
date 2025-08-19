@@ -13,9 +13,10 @@ type Props = {
   onSelect: (value: string) => void
   visible: boolean
   onClose: () => void
+  onSelectionChange?: (hasSelection: boolean) => void
 }
 
-const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visible, onClose }) => {
+const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visible, onClose, onSelectionChange }) => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -75,6 +76,12 @@ const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visib
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [visible, suggestions, selectedIndex, onSelect, onClose])
+
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedIndex >= 0 && selectedIndex < suggestions.length)
+    }
+  }, [selectedIndex, suggestions.length, onSelectionChange])
 
   if (!visible || suggestions.length === 0) {
     return null

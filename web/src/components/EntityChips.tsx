@@ -13,10 +13,14 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   const [inputValue, setInputValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [inputColor, setInputColor] = useState('')
+  const [suggestionSelected, setSuggestionSelected] = useState(false)
   
   const entities = value ? value.split(',').map(s => s.trim()).filter(s => s) : []
   
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === 'Enter' || (e.altKey && e.key === 'ArrowRight')) && suggestionSelected) {
+      return
+    }
     if (e.key === ',' || e.key === 'Enter') {
       e.preventDefault()
       addEntity()
@@ -110,10 +114,15 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
                 onChange(newEntities.join(', '))
                 setInputValue('')
                 setShowSuggestions(false)
+                setSuggestionSelected(false)
               }
             }}
             visible={showSuggestions}
-            onClose={() => setShowSuggestions(false)}
+            onClose={() => {
+              setShowSuggestions(false)
+              setSuggestionSelected(false)
+            }}
+            onSelectionChange={(hasSelection) => setSuggestionSelected(hasSelection)}
           />
         </div>
       </div>
