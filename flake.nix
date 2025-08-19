@@ -55,8 +55,8 @@
         npmDepsHash = "sha256-DPdeOcPiklVZ36xPcEdMx3yAMJdOV06A91PejTYo5D0=";
 
         dontBuild = true;
-        
-        npmFlags = [ "--ignore-scripts" ];
+
+        npmFlags = ["--ignore-scripts"];
 
         installPhase = ''
           mkdir -p $out
@@ -83,10 +83,10 @@
 
         buildPhase = ''
           echo "=== Starting kms-capture package build ==="
-          
+
           echo "Copying pre-built Electron dependencies..."
           cp -r ${electronDeps}/node_modules electron/
-          
+
           echo "=== Package build phase completed ==="
         '';
 
@@ -97,7 +97,7 @@
 
           echo "Copying Python backend server files..."
           cp -r server $out/lib/kms-capture/
-          
+
           echo "Copying Python modules..."
           cp *.py $out/lib/kms-capture/
 
@@ -130,9 +130,6 @@
           # Start backend server in background
           python server/app.py --config config-prod.yaml &
           SERVER_PID=$!
-
-          # Wait for server to start
-          sleep 3
 
           # Function to cleanup processes
           cleanup() {
