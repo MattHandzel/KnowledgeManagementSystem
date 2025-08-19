@@ -1,0 +1,3 @@
+Run: (from repo root)
+1) cd web && npm install && npm run build
+2) Copy web/dist/* into androidApp/app/src/main/assets/www/

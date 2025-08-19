@@ -4,6 +4,8 @@ import ModalityBar from './components/ModalityBar'
 import ClipboardPreview from './components/ClipboardPreview'
 import AudioRecorder from './components/AudioRecorder'
 import HelpOverlay from './components/HelpOverlay'
+import { isNative, nativeSave, pickVaultDirectory, getVaultInfo } from './shared/platform'
+import { formatCaptureMarkdown } from './shared/serialization'
 
 type Config = {
   vault: { path: string; capture_dir: string; media_dir: string }
@@ -90,6 +92,22 @@ const App: React.FC = () => {
   }
   const onScreenshot = async () => {
     try {
+      if (isNative()) {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        input.capture = 'environment'
+        input.onchange = () => {
+          const files = input.files
+          if (files && files.length > 0) {
+            const f = files[0]
+            setMediaFiles(prev => [...prev, f])
+            if (!modalities.includes('screenshot')) setModalities([...modalities, 'screenshot'])
+          }
+        }
+        input.click()
+        return
+      }
       const response = await fetch('/api/screenshot', { method: 'POST' })
       const data = await response.json()
       if (data.success && data.path) {
@@ -117,6 +135,71 @@ const App: React.FC = () => {
     console.log('DEBUG: onSave called with tags:', tags)
     setSaving(true)
     try {
+      const now = new Date()
+      const d = now.toISOString().slice(0,10)
+
+      if (isNative()) {
+        const vaultInfo = await getVaultInfo()
+        if (!vaultInfo) {
+          setPopup({ type: 'error', message: 'Please pick a notes directory first.' })
+          setSaving(false)
+          return
+        }
+        const clipText = modalities.includes('clipboard')
+          ? await (async () => {
+              try {
+                const resp = await navigator.clipboard.readText()
+                return resp || ''
+              } catch {
+                return ''
+              }
+            })()
+          : ''
+        const capture = {
+          timestamp: now,
+          content,
+          clipboard: clipText,
+          context,
+          tags,
+          sources,
+          modalities,
+          created_date: d,
+          last_edited_date: d,
+          media_files: mediaFiles.map(f => ({ path: `${vaultInfo.mediaDirAbs}/${f.name}`, type: (f as any).type || 'file', name: f.name }))
+        }
+        const { filename, content: md } = formatCaptureMarkdown(capture as any, `${vaultInfo.captureDirAbs}`)
+        const mediaItems = await Promise.all(mediaFiles.map(f => new Promise<{ name: string; type?: string; dataBase64: string }>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const res = reader.result as string
+            const base64 = res.split(',')[1] || ''
+            resolve({ name: f.name, type: (f as any).type || undefined, dataBase64: base64 })
+          }
+      {isNative() && (
+        <div style={{ marginBottom: '8px' }}>
+          <button onClick={async () => {
+            const ok = await pickVaultDirectory()
+            if (!ok) setPopup({ type: 'error', message: 'Directory selection canceled or failed' })
+          }}>
+            Pick Notes Directory
+          </button>
+        </div>
+      )}
+
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(f)
+        })))
+        const res = await nativeSave({ filename, content: md, media: mediaItems })
+        if (res.ok) {
+          setSaveSuccess(true)
+          setTimeout(() => setSaveSuccess(false), 2000)
+          resetForm()
+        } else {
+          setPopup({ type: 'error', message: 'Save failed on device' })
+        }
+        return
+      }
+
       const fd = new FormData()
       fd.append('content', content)
       fd.append('context', context)
@@ -134,8 +217,6 @@ const App: React.FC = () => {
         }
       }
       
-      const now = new Date()
-      const d = now.toISOString().slice(0,10)
       fd.append('created_date', d)
       fd.append('last_edited_date', d)
       mediaFiles.forEach(f => {
