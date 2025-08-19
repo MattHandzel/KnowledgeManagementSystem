@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
     response::IntoResponse,
-    extract::{Path, Query},
+    extract::{Path, Query, Form},
     http::StatusCode,
     Json,
 };
@@ -31,9 +31,63 @@ async fn api_screenshot() -> impl IntoResponse {
     Json(serde_json::json!({ "success": true, "path": "" }))
 }
 
-async fn api_capture() -> impl IntoResponse {
-    let res = markdown::write_capture();
-    Json(res)
+#[derive(serde::Deserialize)]
+struct CaptureForm {
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    context: String,
+    #[serde(default)]
+    tags: String,
+    #[serde(default)]
+    sources: String,
+    #[serde(default)]
+    modalities: String,
+    #[serde(default)]
+    clipboard: String,
+    #[serde(default)]
+    screenshot_path: String,
+    #[serde(default)]
+    screenshot_type: String,
+    #[serde(default)]
+    created_date: Option<String>,
+    #[serde(default)]
+    last_edited_date: Option<String>,
+}
+
+async fn api_capture(Form(f): Form<CaptureForm>) -> impl IntoResponse {
+    let ts = chrono::Utc::now();
+    let cds = f.created_date.clone().unwrap_or_else(|| ts.date_naive().to_string());
+    let les = f.last_edited_date.clone().unwrap_or_else(|| ts.date_naive().to_string());
+
+    let tag_list: Vec<String> = f.tags.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
+    let src_list: Vec<String> = f.sources.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    let mod_list: Vec<String> = {
+        let v: Vec<String> = f.modalities.split(',').map(|m| m.trim().to_string()).filter(|m| !m.is_empty()).collect();
+        if v.is_empty() { vec!["text".into()] } else { v }
+    };
+    let mut files_meta: Vec<serde_json::Value> = vec![];
+    if !f.screenshot_path.is_empty() && !f.screenshot_type.is_empty() {
+        files_meta.push(serde_json::json!({"path": f.screenshot_path, "type": f.screenshot_type}));
+    }
+
+    let capture = serde_json::json!({
+        "timestamp": ts.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        "content": f.content,
+        "clipboard": f.clipboard,
+        "context": f.context.trim(),
+        "tags": tag_list,
+        "modalities": mod_list,
+        "sources": src_list,
+        "location": serde_json::Value::Null,
+        "media_files": files_meta,
+        "created_date": cds,
+        "last_edited_date": les,
+    });
+
+    let res = markdown::write_capture_with(capture.clone());
+    db::store_capture_data(&capture);
+    Json(serde_json::json!({ "saved_to": res.saved_to, "verified": res.verified }))
 }
 
 async fn api_suggestions(Path(field_type): Path<String>, Query(q): Query<HashMap<String, String>>) -> impl IntoResponse {
