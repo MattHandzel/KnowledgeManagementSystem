@@ -29,11 +29,13 @@ describe('App keybindings and help', () => {
     mockFetchConfigAndCapture()
   })
 
-  it('Ctrl+Enter triggers save and shows toast', async () => {
-    render(<App />)
+  it('Ctrl+Enter triggers save and shows success indicator', async () => {
+    const { container } = render(<App />)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
-    const toast = await screen.findByText(/Saved to /i, {}, { timeout: 2000 })
-    expect(toast).toBeInTheDocument()
+    await waitFor(() => {
+      const success = container.querySelector('.save-success .checkmark')
+      expect(success).toBeTruthy()
+    }, { timeout: 2500 })
   })
 
   it('Plain number does not toggle modalities, Ctrl+2 does', async () => {
@@ -46,13 +48,14 @@ describe('App keybindings and help', () => {
     await waitFor(() => expect(clipboardBtn).toHaveClass('active'), { timeout: 2000 })
   })
 
-  it('Help overlay toggles via Help button', async () => {
+  it('Help overlay toggles via F1 and closes via Close button', async () => {
     const { container } = render(<App />)
-    const helpBtn = within(container).getByRole('button', { name: /Help/i })
-    await userEvent.click(helpBtn)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1', bubbles: true }))
     const closeBtn = await within(container).findByRole('button', { name: /Close/i })
     expect(closeBtn).toBeInTheDocument()
     await userEvent.click(closeBtn)
-    await waitFor(() => expect(within(container).queryByRole('button', { name: /Close/i })).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(within(container).queryByRole('button', { name: /Close/i })).not.toBeInTheDocument()
+    })
   })
 })

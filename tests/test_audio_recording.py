@@ -1,3 +1,4 @@
+import os
 import pytest
 import sys
 import tempfile
@@ -8,6 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sd = pytest.importorskip("sounddevice", reason="PortAudio not installed")
 
 from server.audio_recorder import (
     AudioRecorder, 
@@ -49,7 +51,7 @@ class TestAudioRecorder:
         recorder.set_waveform_callback(callback)
         assert recorder.waveform_callback == callback
         
-    @patch('sounddevice.InputStream')
+    @patch('server.audio_recorder.sd.InputStream')
     def test_start_recording_success(self, mock_stream):
         recorder = MockAudioRecorder()
         
@@ -70,7 +72,7 @@ class TestAudioRecorder:
         result = recorder.start_recording()
         assert result is False
         
-    @patch('sounddevice.InputStream')
+    @patch('server.audio_recorder.sd.InputStream')
     def test_stop_recording(self, mock_stream):
         recorder = MockAudioRecorder()
         
@@ -251,8 +253,9 @@ class TestAudioRecordingManager:
         result = manager.create_recorder('microphone', 'test_mic')
         assert result is False
         
-    @patch('sounddevice.InputStream')
-    def test_start_recording(self, mock_stream):
+    @patch('server.audio_recorder.sd.query_devices', return_value={'name': 'Default Input', 'channels': 1})
+    @patch('server.audio_recorder.sd.InputStream')
+    def test_start_recording(self, mock_stream, mock_query):
         manager = AudioRecordingManager()
         manager.create_recorder('microphone', 'test_mic')
         
