@@ -86,22 +86,6 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
     <div className="entity-chips">
       <label>{label}</label>
       <div className="chips-container">
-        {entities.length > 0 && (
-          <div className="chips-row">
-            {entities.map((entity, index) => (
-              <span key={index} className="chip">
-                {entity}
-                <button 
-                  type="button" 
-                  onClick={() => removeEntity(index)}
-                  className="chip-remove"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
         <div className="chip-input-container">
           <input
             type="text"
@@ -139,6 +123,22 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             }}
           />
         </div>
+        {entities.length > 0 && (
+          <div className="chips-row">
+            {entities.map((entity, index) => (
+              <span key={index} className="chip">
+                {entity}
+                <button 
+                  type="button" 
+                  onClick={() => removeEntity(index)}
+                  className="chip-remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
