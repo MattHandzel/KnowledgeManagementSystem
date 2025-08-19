@@ -1,25 +1,25 @@
 import os
 import sys
 import argparse
+import asyncio
+import subprocess
+import yaml
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import threading
-import asyncio
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
-import yaml
-import subprocess
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from markdown_writer import SafeMarkdownWriter
+from audio_recorder import AudioRecordingManager
 from geolocation import get_device_location
 from main_db import MainDatabase
+from markdown_writer import SafeMarkdownWriter
 
 app = FastAPI()
 app.add_middleware(
@@ -36,6 +36,8 @@ if not web_dist_path.exists():
 
 main_db = None
 _config_path = None
+audio_manager = AudioRecordingManager()
+
 
 def get_main_db():
     """Get the initialized main database instance."""
@@ -45,6 +47,7 @@ def get_main_db():
         main_db = MainDatabase(cfg["database"]["path"])
     return main_db
 
+
 def load_config(config_path=None):
     if config_path:
         cfg_path = Path(config_path)
@@ -52,20 +55,21 @@ def load_config(config_path=None):
             cfg_path = Path(__file__).resolve().parent.parent / config_path
     else:
         cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
-    
+
     if not cfg_path.exists():
         return {}
     with cfg_path.open("r") as f:
         return yaml.safe_load(f) or {}
 
+
 def normalize_config(cfg):
     dev_config = cfg.get("development", {})
     mode = dev_config.get("mode", "prod")
     is_dev = mode == "dev"
-    
+
     vault_config = cfg.get("vault", {})
     database_config = cfg.get("database", {})
-    
+
     vault_path = vault_config.get("path", "~/notes")
     if vault_path == "ROOT_DIRECTORY_PATH":
         root_path = str(Path(__file__).resolve().parent.parent)
@@ -73,9 +77,9 @@ def normalize_config(cfg):
     elif vault_path == "ROOT_DIRECTORY_PATH/dev":
         root_path = str(Path(__file__).resolve().parent.parent)
         vault_path = root_path + "/dev"
-    
+
     db_path = database_config.get("path", "server/main.db")
-    
+
     if "KMS_DATA_DIR" in os.environ:
         data_dir = Path(os.environ["KMS_DATA_DIR"])
         db_path = str(data_dir / "main.db")
@@ -91,10 +95,10 @@ def normalize_config(cfg):
             db_path = str(data_dir / "main.db")
         else:
             db_path = str(Path(__file__).resolve().parent.parent / db_path)
-    
+
     if "KMS_VAULT_PATH" in os.environ:
         vault_path = os.environ["KMS_VAULT_PATH"]
-    
+
     d = {
         "vault": {
             "path": os.path.expanduser(vault_path),
@@ -113,22 +117,26 @@ def normalize_config(cfg):
     }
     return d
 
+
 @app.get("/api/config")
 def api_config():
     cfg = normalize_config(load_config(_config_path))
     return cfg
 
+
 @app.get("/api/clipboard")
 def api_clipboard():
     """Get current clipboard content."""
     try:
-        result = subprocess.run(['wl-paste', '-t', 'text'], 
-                              capture_output=True, text=True, timeout=2)
+        result = subprocess.run(
+            ["wl-paste", "-t", "text"], capture_output=True, text=True, timeout=2
+        )
         if result.returncode == 0:
             return {"content": result.stdout, "type": "text"}
         return {"content": "", "type": "text"}
     except Exception:
         return {"content": "", "type": "text"}
+
 
 @app.post("/api/screenshot")
 def api_screenshot():
@@ -139,21 +147,23 @@ def api_screenshot():
         media_dir = Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"]
         media_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = media_dir / f"{timestamp}_screenshot.png"
-        
-        result = subprocess.run(['grim', str(screenshot_path)], 
-                              capture_output=True, timeout=10)
-        
+
+        result = subprocess.run(
+            ["grim", str(screenshot_path)], capture_output=True, timeout=10
+        )
+
         if result.returncode == 0:
             return {"path": str(screenshot_path), "success": True}
         return {"success": False, "error": "Screenshot failed"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 def _validate_modalities_have_content(capture_data, modalities):
     """Validate that selected modalities have actual content."""
     if not modalities:
         return False
-    
+
     for modality in modalities:
         if modality == "text":
             content = capture_data.get("content", "").strip()
@@ -170,8 +180,9 @@ def _validate_modalities_have_content(capture_data, modalities):
         elif modality == "system-audio":
             if not capture_data.get("media_files"):
                 return False
-    
+
     return True
+
 
 @app.post("/api/capture")
 async def api_capture(
@@ -190,12 +201,23 @@ async def api_capture(
     cfg = normalize_config(load_config(_config_path))
     writer = SafeMarkdownWriter(str(Path(cfg["vault"]["path"]).expanduser()))
     ts = datetime.now(timezone.utc)
-    ts_str = ts.replace(microsecond=0).isoformat()
     cds = created_date or ts.date().isoformat()
     les = last_edited_date or ts.date().isoformat()
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if isinstance(tags, str) else []
-    src_list = [s.strip() for s in sources.split(",") if s.strip()] if isinstance(sources, str) else []
-    mod_list = [m.strip() for m in modalities.split(",") if m.strip()] if isinstance(modalities, str) else []
+    tag_list = (
+        [t.strip() for t in tags.split(",") if t.strip()]
+        if isinstance(tags, str)
+        else []
+    )
+    src_list = (
+        [s.strip() for s in sources.split(",") if s.strip()]
+        if isinstance(sources, str)
+        else []
+    )
+    mod_list = (
+        [m.strip() for m in modalities.split(",") if m.strip()]
+        if isinstance(modalities, str)
+        else []
+    )
     ctx = context.strip() if context.strip() else ""
     files_meta = []
     if media:
@@ -207,11 +229,11 @@ async def api_capture(
             b = await f.read()
             dest.write_bytes(b)
             files_meta.append({"path": str(dest), "name": name})
-    
+
     if screenshot_path and screenshot_type:
         files_meta.append({"path": screenshot_path, "type": screenshot_type})
     location_data = get_device_location()
-    
+
     capture = {
         "timestamp": ts,
         "content": content or "",
@@ -225,29 +247,29 @@ async def api_capture(
         "created_date": cds,
         "last_edited_date": les,
     }
-    
+
     if not _validate_modalities_have_content(capture, mod_list):
-        return JSONResponse({"error": "No content provided for selected modalities"}, status_code=400)
-    
+        return JSONResponse(
+            {"error": "No content provided for selected modalities"}, status_code=400
+        )
+
     p = writer.write_capture(capture)
-    
+
     get_main_db().store_capture_data(capture)
-    
+
     import os
+
     file_exists = os.path.exists(p) if p else False
-    
-    return JSONResponse({
-        "saved_to": str(p),
-        "verified": file_exists
-    })
+
+    return JSONResponse({"saved_to": str(p), "verified": file_exists})
 
 
 @app.get("/api/suggestions/{field_type}")
 def api_suggestions(field_type: str, query: str = "", limit: int = 10):
     """Get suggestions for a field type with optional query filtering."""
-    if field_type not in ['tag', 'source', 'context']:
+    if field_type not in ["tag", "source", "context"]:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
-    
+
     suggestions = get_main_db().get_suggestions(field_type, query, limit)
     return {
         "suggestions": [
@@ -255,7 +277,7 @@ def api_suggestions(field_type: str, query: str = "", limit: int = 10):
                 "value": s.value,
                 "count": s.count,
                 "last_used": s.last_used.isoformat(),
-                "color": s.color
+                "color": s.color,
             }
             for s in suggestions
         ]
@@ -265,11 +287,12 @@ def api_suggestions(field_type: str, query: str = "", limit: int = 10):
 @app.get("/api/suggestion-exists/{field_type}")
 def api_suggestion_exists(field_type: str, value: str):
     """Check if a suggestion value exists in the database."""
-    if field_type not in ['tag', 'source', 'context']:
+    if field_type not in ["tag", "source", "context"]:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
-    
+
     exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
+
 
 if web_dist_path.exists():
     app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
@@ -282,27 +305,87 @@ def api_recent_values():
     return {"recent_values": recent_values}
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Knowledge Management System Server')
-    parser.add_argument('--config', type=str, help='Path to config file')
-    args = parser.parse_args()
-    
-    _config_path = args.config
-    
+@app.post("/api/audio/start")
+def api_audio_start(recorder_type: str = Form(...), recorder_id: str = Form(...)):
+    """Start audio recording."""
+    if not audio_manager.create_recorder(recorder_type, recorder_id):
+        if recorder_id in audio_manager.recorders:
+            return JSONResponse({"error": "Recorder already exists"}, status_code=400)
+        return JSONResponse({"error": "Invalid recorder type"}, status_code=400)
+
+    if not audio_manager.start_recording(recorder_id):
+        return JSONResponse({"error": "Failed to start recording"}, status_code=500)
+
+    return {"status": "recording_started", "recorder_id": recorder_id}
+
+
+@app.post("/api/audio/stop")
+def api_audio_stop(recorder_id: str = Form(...)):
+    """Stop audio recording and save file."""
+    if not audio_manager.stop_recording(recorder_id):
+        return JSONResponse({"error": "Failed to stop recording"}, status_code=500)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    filename = f"audio_{recorder_id}_{timestamp}.wav"
     cfg = normalize_config(load_config(_config_path))
-    
+    filepath = (
+        Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"] / filename
+    )
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    if not audio_manager.save_recording(recorder_id, filepath):
+        return JSONResponse({"error": "Failed to save recording"}, status_code=500)
+
+    audio_manager.cleanup_recorder(recorder_id)
+
+    return {
+        "status": "recording_saved",
+        "filename": filename,
+        "filepath": str(filepath),
+    }
+
+
+@app.get("/api/audio/status/{recorder_id}")
+def api_audio_status(recorder_id: str):
+    """Get audio recording status."""
+    status = audio_manager.get_recording_status(recorder_id)
+    return status
+
+
+@app.websocket("/ws/audio-waveform/{recorder_id}")
+async def websocket_audio_waveform(websocket: WebSocket, recorder_id: str):
+    """WebSocket endpoint for real-time waveform data."""
+    await websocket.accept()
+    audio_manager.add_websocket_connection(recorder_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        audio_manager.remove_websocket_connection(recorder_id, websocket)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Knowledge Management System Server")
+    parser.add_argument("--config", type=str, help="Path to config file")
+    args = parser.parse_args()
+
+    _config_path = args.config
+
+    cfg = normalize_config(load_config(_config_path))
+
     db_path = cfg["database"]["path"]
     db_dir = Path(db_path).parent
     db_dir.mkdir(parents=True, exist_ok=True)
-    
+
     main_db = MainDatabase(db_path)
-    
+
     if cfg.get("is_dev"):
         print("🚧 RUNNING IN DEVELOPMENT MODE 🚧")
-    
+
     config = Config()
     config.bind = [f"0.0.0.0:{int(os.environ.get('PORT', '7123'))}"]
     config.use_reloader = False
     config.accesslog = "-"
-    
+
     asyncio.run(serve(app, config))

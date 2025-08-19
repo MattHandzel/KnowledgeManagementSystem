@@ -8,89 +8,122 @@ type Props = {
 const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) => {
   const [isRecording, setIsRecording] = useState(false)
   const [audioData, setAudioData] = useState<number[]>([])
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const [error, setError] = useState<string>('')
+  const websocketRef = useRef<WebSocket | null>(null)
+  const recorderId = useRef<string>('')
+
+  useEffect(() => {
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.close()
+      }
+    }
+  }, [])
 
   const startRecording = async () => {
     try {
-      const constraints = systemAudio 
-        ? { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }
-        : { audio: true }
+      setError('')
+      const recorderType = systemAudio ? 'system' : 'microphone'
+      recorderId.current = `${recorderType}_${Date.now()}`
       
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-      streamRef.current = stream
+      const formData = new FormData()
+      formData.append('recorder_type', recorderType)
+      formData.append('recorder_id', recorderId.current)
       
-      audioContextRef.current = new AudioContext()
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 256
-      
-      const source = audioContextRef.current.createMediaStreamSource(stream)
-      source.connect(analyserRef.current)
-      
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+      const response = await fetch('/api/audio/start', {
+        method: 'POST',
+        body: formData
       })
       
-      const chunks: Blob[] = []
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data)
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to start recording')
       }
       
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' })
-        const audioFile = new File([audioBlob], `${systemAudio ? 'system_' : ''}audio_${Date.now()}.webm`, { type: 'audio/webm' })
-        onAudioReady(audioFile)
-      }
-      
-      mediaRecorderRef.current.start(100)
       setIsRecording(true)
       setAudioData([])
       
-      visualizeAudio()
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${wsProtocol}//${window.location.host}/ws/audio-waveform/${recorderId.current}`
+      websocketRef.current = new WebSocket(wsUrl)
+      
+      websocketRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'waveform' && data.recorder_id === recorderId.current) {
+            setAudioData(prev => [...prev.slice(-100), ...data.data].slice(-100))
+          }
+        } catch (e) {
+          console.error('Failed to parse WebSocket message:', e)
+        }
+      }
+      
+      websocketRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setError('WebSocket connection failed')
+      }
+      
     } catch (error) {
       console.error('Recording failed:', error)
-    }
-  }
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
+      setError(error instanceof Error ? error.message : 'Recording failed')
       setIsRecording(false)
-      
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
-      
-      if (audioContextRef.current) {
-        audioContextRef.current.close()
-      }
     }
   }
 
-  const visualizeAudio = () => {
-    if (!analyserRef.current) return
-    
-    const bufferLength = analyserRef.current.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLength)
-    
-    const draw = () => {
-      if (!isRecording) return
+  const stopRecording = async () => {
+    try {
+      if (websocketRef.current) {
+        websocketRef.current.close()
+        websocketRef.current = null
+      }
       
-      analyserRef.current!.getByteTimeDomainData(dataArray)
-      const average = dataArray.reduce((sum, value) => sum + Math.abs(value - 128), 0) / bufferLength
-      setAudioData(prev => [...prev.slice(-100), average])
+      const formData = new FormData()
+      formData.append('recorder_id', recorderId.current)
       
-      requestAnimationFrame(draw)
+      const response = await fetch('/api/audio/stop', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to stop recording')
+      }
+      
+      const result = await response.json()
+      
+      const audioResponse = await fetch(`/capture/raw_capture/media/${result.filename}`)
+      if (!audioResponse.ok) {
+        throw new Error('Failed to fetch recorded audio file')
+      }
+      
+      const audioBlob = await audioResponse.blob()
+      const audioFile = new File([audioBlob], result.filename, { type: 'audio/wav' })
+      
+      setIsRecording(false)
+      onAudioReady(audioFile)
+      
+    } catch (error) {
+      console.error('Stop recording failed:', error)
+      setError(error instanceof Error ? error.message : 'Failed to stop recording')
+      setIsRecording(false)
     }
-    draw()
   }
 
   return (
     <div className="audio-recorder" style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}>
+      {error && (
+        <div style={{ 
+          color: '#dc3545', 
+          fontSize: '12px', 
+          marginBottom: '10px',
+          padding: '5px',
+          backgroundColor: '#f8d7da',
+          borderRadius: '2px'
+        }}>
+          {error}
+        </div>
+      )}
       <div className="waveform" style={{ 
         display: 'flex', 
         alignItems: 'end', 
@@ -111,7 +144,7 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
             key={i} 
             className="bar" 
             style={{ 
-              height: `${Math.max(2, Math.min(50, value * 2))}px`, 
+              height: `${Math.max(2, Math.min(50, value))}px`, 
               width: '2px', 
               backgroundColor: isRecording ? '#007acc' : '#999',
               borderRadius: '1px'
