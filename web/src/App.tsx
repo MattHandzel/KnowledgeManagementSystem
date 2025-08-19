@@ -27,6 +27,8 @@ const App: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
+  const [vaultInfo, setVaultInfo] = useState<{ captureDirAbs: string; mediaDirAbs: string } | null>(null)
+
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
   useEffect(() => {
@@ -45,6 +47,12 @@ const App: React.FC = () => {
         }
       }
     }).catch(() => setConfig({ vault: { path: '', capture_dir: '', media_dir: '' } }))
+  useEffect(() => {
+    if (isNative()) {
+      getVaultInfo().then(v => setVaultInfo(v)).catch(() => {})
+    }
+  }, [])
+
   }, [])
 
   useEffect(() => {
@@ -266,6 +274,28 @@ const App: React.FC = () => {
         saving={saving}
         onSave={handleSave}
       />
+      {isNative() && (
+        <div style={{ marginBottom: '8px' }}>
+          <button onClick={async () => {
+            const ok = await pickVaultDirectory()
+            if (!ok) {
+              setPopup({ type: 'error', message: 'Directory selection canceled or failed' })
+            } else {
+              const v = await getVaultInfo()
+              setVaultInfo(v)
+            }
+          }}>
+            Pick Notes Directory
+          </button>
+          {vaultInfo && (
+            <div style={{ marginTop: '6px', fontSize: '0.9em', color: '#666' }}>
+              <div><strong>Capture dir:</strong> {vaultInfo.captureDirAbs}</div>
+              <div><strong>Media dir:</strong> {vaultInfo.mediaDirAbs}</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {isNative() && (
         <div style={{ marginBottom: '8px' }}>
           <button onClick={async () => {
