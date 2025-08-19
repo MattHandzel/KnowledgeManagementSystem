@@ -41,10 +41,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## First Run
 
-1) Tap “Pick Notes Directory” in the app (this button appears when running natively) or open the menu to select a directory  
-2) Grant access and the app will persist access to that directory  
-3) Create a note with text, clipboard, image/screenshot, and/or audio  
-4) Save: the app writes
+1) Tap “Pick Notes Directory” (visible when running natively) to select your root notes folder via the Android folder picker (SAF).  
+2) Grant access; the app persists access to that folder across restarts.  
+3) After picking, the app shows the effective target paths:
+   - Capture dir: capture/raw_capture
+   - Media dir: capture/raw_capture/media
+4) Create a note with text, clipboard, image/screenshot, and/or audio, then Save. The app writes:
    - Markdown to {vault}/capture/raw_capture/{capture_id}.md
    - Media to {vault}/capture/raw_capture/media/{filename}
 

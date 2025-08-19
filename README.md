@@ -100,7 +100,8 @@ Quick start:
 - cd web && npm install && npm run build
 - Copy web/dist into androidApp/app/src/main/assets/www
 - cd androidApp && ./gradlew :app:assembleDebug
-- Install the resulting APK on your device and, on first run, pick your notes directory
+- Install the resulting APK on your device
+- On first run, tap “Pick Notes Directory” to choose your notes folder (SAF). The app will display the capture/media subpaths it will use.
 
 ## Configuration
 
