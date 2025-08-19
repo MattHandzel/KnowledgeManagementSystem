@@ -546,7 +546,7 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--glass-bg);
+  background: var(--form-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 2px solid var(--glass-border);

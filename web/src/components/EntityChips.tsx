@@ -13,11 +13,29 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   const [inputValue, setInputValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [inputColor, setInputColor] = useState('')
+  const [suggestionSelected, setSuggestionSelected] = useState(false)
   
   const entities = value ? value.split(',').map(s => s.trim()).filter(s => s) : []
   
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === ',' || e.key === 'Enter') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      setSuggestionSelected(true)
+      return
+    }
+    
+    if (e.key === 'Escape') {
+      setSuggestionSelected(false)
+      setShowSuggestions(false)
+      return
+    }
+    
+    if (e.key === 'Enter' || (e.altKey && e.key === 'ArrowRight')) {
+      if (showSuggestions && suggestionSelected) {
+        return
+      }
+      e.preventDefault()
+      addEntity()
+    } else if (e.key === ',') {
       e.preventDefault()
       addEntity()
     } else if (e.key === 'Backspace' && inputValue === '' && entities.length > 0) {
@@ -39,6 +57,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
     const newValue = e.target.value
     setInputValue(newValue)
     setShowSuggestions(true)
+    setSuggestionSelected(false)
     
     if (newValue.trim()) {
       checkValueExists(newValue.trim())
@@ -110,10 +129,14 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
                 onChange(newEntities.join(', '))
                 setInputValue('')
                 setShowSuggestions(false)
+                setSuggestionSelected(false)
               }
             }}
             visible={showSuggestions}
-            onClose={() => setShowSuggestions(false)}
+            onClose={() => {
+              setShowSuggestions(false)
+              setSuggestionSelected(false)
+            }}
           />
         </div>
       </div>
