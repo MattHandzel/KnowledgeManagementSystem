@@ -1,10 +1,10 @@
 import json
 import threading
-import time
 from typing import List, Dict, Any, Tuple
 from urllib import request
 from urllib.error import URLError
 from urllib.parse import urljoin
+from hashlib import sha256
 
 
 class _Inflight:
@@ -26,16 +26,18 @@ class AISuggester:
     def _prompt_for(self, field_type: str, content: str) -> str:
         if field_type == "tag":
             return (
-                "You are to extract up to 8 concise tags from the provided note content. "
-                "Use singular nouns where applicable. Output strictly as JSON array of objects with keys 'value' and 'confidence' (0..1). "
+                "You are to extract up to 8 concise tags from the provided note "
+                "content. Use singular nouns where applicable. Output strictly as "
+                "JSON array of objects with keys 'value' and 'confidence' (0..1). "
                 "Values should be kebab-case."
                 "\nContent:\n" + content
             )
         else:
             return (
-                "You are to extract up to 8 likely sources referenced in the note content. "
-                "Sources can be people, books, or organizations. Output strictly as JSON array of objects with keys 'value' and 'confidence' (0..1). "
-                "Values must be kebab-case."
+                "You are to extract up to 8 likely sources referenced in the note "
+                "content. Sources can be people, books, or organizations. Output "
+                "strictly as JSON array of objects with keys 'value' and 'confidence' "
+                "(0..1). Values must be kebab-case."
                 "\nContent:\n" + content
             )
 
@@ -65,7 +67,7 @@ class AISuggester:
             start = text.find("[")
             end = text.rfind("]")
             if start != -1 and end != -1 and end > start:
-                arr = json.loads(text[start : end + 1])
+                arr = json.loads(text[slice(start, end + 1)])
                 if isinstance(arr, list):
                     out = []
                     for it in arr:
@@ -86,7 +88,8 @@ class AISuggester:
         return []
 
     def generate(self, field_type: str, content: str) -> List[Dict[str, Any]]:
-        key = (field_type, str(hash(content)))
+        content_hash = sha256(content.encode("utf-8")).hexdigest()
+        key = (field_type, content_hash)
         with self.lock:
             if key in self.inflight:
                 infl = self.inflight[key]

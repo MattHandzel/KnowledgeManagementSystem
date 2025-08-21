@@ -1,12 +1,12 @@
 import os
-import sys
+from pathlib import Path
 import argparse
 import asyncio
 import subprocess
 import yaml
-from pathlib import Path
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from hashlib import sha256
 
 from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,15 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 from audio_recorder import AudioRecordingManager
 from geolocation import get_device_location
 from main_db import MainDatabase
 from markdown_writer import SafeMarkdownWriter
-from normalization import to_kebab_case, singularize_tag, dedupe_preserve_order
+from normalization import to_kebab_case, singularize_tag
 from ai_suggester import AISuggester
-from hashlib import sha256
-from typing import Dict, Any
 
 
 app = FastAPI()

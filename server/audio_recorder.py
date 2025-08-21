@@ -113,7 +113,7 @@ class AudioRecorder(ABC):
 
         waveform = []
         for i in range(0, len(audio_chunk), chunk_size):
-            chunk = audio_chunk[i : i + chunk_size]
+            chunk = audio_chunk[slice(i, i + chunk_size)]
             amplitude = np.sqrt(np.mean(chunk**2)) * 100
             waveform.append(min(100, max(0, amplitude)))
 

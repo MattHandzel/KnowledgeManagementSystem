@@ -117,7 +117,8 @@ class MainDatabase:
                 """
             )
             conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_cache_key ON ai_suggestion_cache (content_hash, field_type)"
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_cache_key "
+                "ON ai_suggestion_cache (content_hash, field_type)"
             )
 
             conn.execute(
@@ -135,7 +136,8 @@ class MainDatabase:
                 """
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_ai_feedback_content ON ai_feedback (content_hash, field_type)"
+                "CREATE INDEX IF NOT EXISTS idx_ai_feedback_content "
+                "ON ai_feedback (content_hash, field_type)"
             )
             conn.commit()
 
@@ -156,8 +158,8 @@ class MainDatabase:
             )
             conn.execute(
                 """
-                INSERT OR REPLACE INTO captures 
-                (capture_id, timestamp, content, context, modalities, location, 
+                INSERT OR REPLACE INTO captures
+                (capture_id, timestamp, content, context, modalities, location,
                  metadata, created_date, last_edited_date, file_path)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -216,7 +218,7 @@ class MainDatabase:
             for media_file in media_files:
                 conn.execute(
                     """
-                    INSERT INTO media_files 
+                    INSERT INTO media_files
                     (capture_id, file_path, file_type, file_name, timestamp)
                     VALUES (?, ?, ?, ?, ?)
                 """,
@@ -288,78 +290,8 @@ class MainDatabase:
             conn.execute(
                 """
                 INSERT INTO ai_feedback
-                (content_hash, field_type, original_value, final_value, action, confidence, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    content_hash,
-                    field_type,
-                    original_value,
-                    final_value,
-                    action,
-                    confidence,
-                    datetime.now(timezone.utc).isoformat(),
-                ),
-            )
-            conn.commit()
-
-    def get_all_values_set(self, field_type: str):
-        table_map = {"tag": "tags", "source": "sources", "context": "contexts"}
-        table = table_map.get(field_type)
-        if not table:
-            return set()
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(f"SELECT DISTINCT value FROM {table}")
-            return set(row[0] for row in cursor.fetchall())
-
-    def get_ai_cache(self, content_hash: str, field_type: str):
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                """
-                SELECT suggestions_json FROM ai_suggestion_cache
-                WHERE content_hash = ? AND field_type = ?
-                """,
-                (content_hash, field_type),
-            )
-            row = cursor.fetchone()
-            if not row:
-                return []
-            try:
-                return json.loads(row[0])
-            except Exception:
-                return []
-
-    def set_ai_cache(self, content_hash: str, field_type: str, suggestions):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO ai_suggestion_cache
-                (content_hash, field_type, suggestions_json, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    content_hash,
-                    field_type,
-                    json.dumps(suggestions),
-                    datetime.now(timezone.utc).isoformat(),
-                ),
-            )
-            conn.commit()
-
-    def record_ai_feedback(
-        self,
-        content_hash: str,
-        field_type: str,
-        original_value: str,
-        action: str,
-        confidence: float | None = None,
-        final_value: str | None = None,
-    ):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                INSERT INTO ai_feedback
-                (content_hash, field_type, original_value, final_value, action, confidence, timestamp)
+                (content_hash, field_type, original_value, final_value, action,
+                 confidence, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -473,8 +405,8 @@ class MainDatabase:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
-                SELECT capture_id FROM captures 
-                ORDER BY timestamp DESC 
+                SELECT capture_id FROM captures
+                ORDER BY timestamp DESC
                 LIMIT 1
             """
             )
@@ -486,7 +418,7 @@ class MainDatabase:
 
             cursor = conn.execute(
                 """
-                SELECT value FROM tags 
+                SELECT value FROM tags
                 WHERE capture_id = ?
                 ORDER BY timestamp DESC
             """,
@@ -498,7 +430,7 @@ class MainDatabase:
 
             cursor = conn.execute(
                 """
-                SELECT value FROM sources 
+                SELECT value FROM sources
                 WHERE capture_id = ?
                 ORDER BY timestamp DESC
             """,
@@ -510,7 +442,7 @@ class MainDatabase:
 
             cursor = conn.execute(
                 """
-                SELECT value FROM contexts 
+                SELECT value FROM contexts
                 WHERE capture_id = ?
                 ORDER BY timestamp DESC
                 LIMIT 1
@@ -542,10 +474,10 @@ class MainDatabase:
 
             cursor = conn.execute(
                 """
-                SELECT value, COUNT(*) as count 
-                FROM tags 
-                GROUP BY value 
-                ORDER BY count DESC 
+                SELECT value, COUNT(*) as count
+                FROM tags
+                GROUP BY value
+                ORDER BY count DESC
                 LIMIT 10
             """
             )
@@ -553,10 +485,10 @@ class MainDatabase:
 
             cursor = conn.execute(
                 """
-                SELECT value, COUNT(*) as count 
-                FROM sources 
-                GROUP BY value 
-                ORDER BY count DESC 
+                SELECT value, COUNT(*) as count
+                FROM sources
+                GROUP BY value
+                ORDER BY count DESC
                 LIMIT 10
             """
             )
