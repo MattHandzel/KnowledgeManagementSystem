@@ -20,6 +20,11 @@ from audio_recorder import AudioRecordingManager
 from geolocation import get_device_location
 from main_db import MainDatabase
 from markdown_writer import SafeMarkdownWriter
+from normalization import to_kebab_case, singularize_tag, dedupe_preserve_order
+from ai_suggester import AISuggester
+from hashlib import sha256
+from typing import Dict, Any
+
 
 app = FastAPI()
 app.add_middleware(
@@ -37,6 +42,15 @@ if not web_dist_path.exists():
 main_db = None
 _config_path = None
 audio_manager = AudioRecordingManager()
+_ai_suggester = None
+
+
+def get_ai_suggester():
+    global _ai_suggester
+    if _ai_suggester is None:
+        cfg = normalize_config(load_config(_config_path))
+        _ai_suggester = AISuggester(cfg.get("ai", {}))
+    return _ai_suggester
 
 
 def get_main_db():
@@ -112,6 +126,7 @@ def normalize_config(cfg):
         "capture": cfg.get("capture", {}),
         "keybindings": cfg.get("keybindings", {}),
         "theme": cfg.get("theme", {}),
+        "ai": cfg.get("ai", {}),
         "mode": mode,
         "is_dev": is_dev,
     }
@@ -265,23 +280,114 @@ async def api_capture(
 
 
 @app.get("/api/suggestions/{field_type}")
-def api_suggestions(field_type: str, query: str = "", limit: int = 10):
-    """Get suggestions for a field type with optional query filtering."""
+def api_suggestions(
+    field_type: str, query: str = "", limit: int = 10, content: str = "", mode: str = ""
+):
     if field_type not in ["tag", "source", "context"]:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
 
-    suggestions = get_main_db().get_suggestions(field_type, query, limit)
-    return {
-        "suggestions": [
-            {
-                "value": s.value,
-                "count": s.count,
-                "last_used": s.last_used.isoformat(),
-                "color": s.color,
-            }
-            for s in suggestions
-        ]
-    }
+    db = get_main_db()
+    base = db.get_suggestions(field_type, query, max(limit * 2, 10))
+    result_items: Dict[str, Dict[str, Any]] = {}
+    for s in base:
+        result_items[s.value.lower()] = {
+            "value": s.value,
+            "count": s.count,
+            "last_used": s.last_used.isoformat(),
+            "color": s.color,
+            "origin": "db",
+            "db_known": True,
+        }
+
+    cfg = normalize_config(load_config(_config_path))
+    ai_cfg = cfg.get("ai", {}) or {}
+    ai_enabled = ai_cfg.get("enabled", False)
+
+    if content.strip() and ai_enabled and field_type in ["tag", "source"]:
+        content_hash = sha256(content.encode("utf-8")).hexdigest()
+        cached = db.get_ai_cache(content_hash, field_type)
+        ai_items = cached
+        if not ai_items:
+            suggester = get_ai_suggester()
+            ai_items = suggester.generate(field_type, content)
+            if ai_items:
+                db.set_ai_cache(content_hash, field_type, ai_items)
+
+        all_values = db.get_all_values_set(field_type)
+
+        for item in ai_items or []:
+            raw_val = item.get("value", "")
+            v = (
+                to_kebab_case(raw_val)
+                if field_type == "source"
+                else singularize_tag(raw_val)
+            )
+            v = v.strip()
+            if not v:
+                continue
+            key = v.lower()
+            conf = float(item.get("confidence", 0.0))
+            db_known = v in all_values
+            if db_known:
+                conf = min(1.0, conf + 0.2)
+            if key in result_items:
+                prev = result_items[key]
+                prev["confidence"] = max(conf, float(prev.get("confidence", 0.0)))
+                prev["db_known"] = True
+            else:
+                result_items[key] = {
+                    "value": v,
+                    "count": 0,
+                    "last_used": datetime.now(timezone.utc).isoformat(),
+                    "color": "",
+                    "confidence": conf,
+                    "origin": "ai",
+                    "db_known": db_known,
+                }
+
+    items = list(result_items.values())
+    q = (query or "").lower().strip()
+
+    def rank_key(x):
+        return (
+            1 if x.get("db_known") else 0,
+            float(x.get("confidence", 0.0)),
+            int(x.get("count", 0)),
+            1 if q and x.get("value", "").lower().startswith(q) else 0,
+            1 if q and q in x.get("value", "").lower() else 0,
+        )
+
+    items.sort(key=rank_key, reverse=True)
+    items = items[:limit]
+
+    return {"suggestions": items}
+
+
+@app.post("/api/ai/feedback")
+def api_ai_feedback(payload: dict):
+    try:
+        content = str(payload.get("content", "") or "")
+        content_hash = sha256(content.encode("utf-8")).hexdigest()
+        field_type = str(payload.get("field_type"))
+        original_value = str(payload.get("original_value"))
+        action = str(payload.get("action"))
+        confidence = payload.get("confidence", None)
+        final_value = payload.get("final_value", None)
+        if field_type not in ["tag", "source"]:
+            return JSONResponse({"error": "Invalid field type"}, status_code=400)
+        if not original_value or not action:
+            return JSONResponse({"error": "Missing required fields"}, status_code=400)
+        get_main_db().record_ai_feedback(
+            content_hash,
+            field_type,
+            original_value,
+            action,
+            None if confidence is None else float(confidence),
+            final_value,
+        )
+        return {"status": "ok"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/suggestion-exists/{field_type}")

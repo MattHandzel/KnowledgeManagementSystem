@@ -105,6 +105,38 @@ class MainDatabase:
                 "ON captures (timestamp)"
             )
 
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ai_suggestion_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_hash TEXT NOT NULL,
+                    field_type TEXT NOT NULL,
+                    suggestions_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_cache_key ON ai_suggestion_cache (content_hash, field_type)"
+            )
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ai_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_hash TEXT NOT NULL,
+                    field_type TEXT NOT NULL,
+                    original_value TEXT NOT NULL,
+                    final_value TEXT,
+                    action TEXT NOT NULL,
+                    confidence REAL,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_feedback_content ON ai_feedback (content_hash, field_type)"
+            )
             conn.commit()
 
     def store_capture_data(self, capture_data: Dict[str, Any]):
@@ -166,7 +198,7 @@ class MainDatabase:
                         """
                         INSERT INTO sources (value, capture_id, timestamp)
                         VALUES (?, ?, ?)
-                    """,
+                        """,
                         (source.strip(), capture_id, timestamp),
                     )
 
@@ -199,6 +231,148 @@ class MainDatabase:
 
             conn.commit()
             print("DEBUG: Database transaction committed successfully")
+
+    def get_all_values_set(self, field_type: str):
+        table_map = {"tag": "tags", "source": "sources", "context": "contexts"}
+        table = table_map.get(field_type)
+        if not table:
+            return set()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(f"SELECT DISTINCT value FROM {table}")
+            return set(row[0] for row in cursor.fetchall())
+
+    def get_ai_cache(self, content_hash: str, field_type: str):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT suggestions_json FROM ai_suggestion_cache
+                WHERE content_hash = ? AND field_type = ?
+                """,
+                (content_hash, field_type),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return []
+            try:
+                return json.loads(row[0])
+            except Exception:
+                return []
+
+    def set_ai_cache(self, content_hash: str, field_type: str, suggestions):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO ai_suggestion_cache
+                (content_hash, field_type, suggestions_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    content_hash,
+                    field_type,
+                    json.dumps(suggestions),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
+
+    def record_ai_feedback(
+        self,
+        content_hash: str,
+        field_type: str,
+        original_value: str,
+        action: str,
+        confidence: float | None = None,
+        final_value: str | None = None,
+    ):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO ai_feedback
+                (content_hash, field_type, original_value, final_value, action, confidence, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    content_hash,
+                    field_type,
+                    original_value,
+                    final_value,
+                    action,
+                    confidence,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
+
+    def get_all_values_set(self, field_type: str):
+        table_map = {"tag": "tags", "source": "sources", "context": "contexts"}
+        table = table_map.get(field_type)
+        if not table:
+            return set()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(f"SELECT DISTINCT value FROM {table}")
+            return set(row[0] for row in cursor.fetchall())
+
+    def get_ai_cache(self, content_hash: str, field_type: str):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT suggestions_json FROM ai_suggestion_cache
+                WHERE content_hash = ? AND field_type = ?
+                """,
+                (content_hash, field_type),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return []
+            try:
+                return json.loads(row[0])
+            except Exception:
+                return []
+
+    def set_ai_cache(self, content_hash: str, field_type: str, suggestions):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO ai_suggestion_cache
+                (content_hash, field_type, suggestions_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    content_hash,
+                    field_type,
+                    json.dumps(suggestions),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
+
+    def record_ai_feedback(
+        self,
+        content_hash: str,
+        field_type: str,
+        original_value: str,
+        action: str,
+        confidence: float | None = None,
+        final_value: str | None = None,
+    ):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO ai_feedback
+                (content_hash, field_type, original_value, final_value, action, confidence, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    content_hash,
+                    field_type,
+                    original_value,
+                    final_value,
+                    action,
+                    confidence,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
 
     def get_suggestions(
         self, field_type: str, query: str = "", limit: int = 10

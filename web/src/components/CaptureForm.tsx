@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import EntityChips from './EntityChips'
 import SuggestionDropdown from './SuggestionDropdown'
 
@@ -18,11 +18,22 @@ type Props = {
 
 const CaptureForm: React.FC<Props> = (p) => {
   const [showContextSuggestions, setShowContextSuggestions] = useState(false)
+  const [aiTags, setAiTags] = useState<{ value: string; confidence?: number; db_known?: boolean }[]>([])
+  const [aiSources, setAiSources] = useState<{ value: string; confidence?: number; db_known?: boolean }[]>([])
+  const [aiLoadingTags, setAiLoadingTags] = useState(false)
+  const [aiLoadingSources, setAiLoadingSources] = useState(false)
+  const lastHashRef = useRef<string | null>(null)
+
   const [contextColor, setContextColor] = useState('')
 
   useEffect(() => {
     loadPersistentValues()
+    debounceContent()
   }, [])
+
+  useEffect(() => {
+    debounceContent()
+  }, [p.content])
 
   const loadPersistentValues = async () => {
     try {
@@ -52,6 +63,44 @@ const CaptureForm: React.FC<Props> = (p) => {
       console.error('Failed to load persistent values:', error)
     }
   }
+  const debounceContent = () => {
+    const content = p.content || ''
+    const hash = String(content.length) + (content.slice(0, 32) || '')
+    if (!content.trim()) {
+      setAiTags([])
+      setAiSources([])
+      setAiLoadingTags(false)
+      setAiLoadingSources(false)
+      lastHashRef.current = null
+      return
+    }
+    if (lastHashRef.current === hash) return
+    lastHashRef.current = hash
+    const run = async () => {
+      setAiLoadingTags(true)
+      try {
+        const r1 = await fetch(`/api/suggestions/tag?limit=5&content=${encodeURIComponent(content)}`)
+        const j1 = await r1.json()
+        setAiTags(j1.suggestions || [])
+      } catch (e) {
+        setAiTags([])
+      } finally {
+        setAiLoadingTags(false)
+      }
+      setAiLoadingSources(true)
+      try {
+        const r2 = await fetch(`/api/suggestions/source?limit=5&content=${encodeURIComponent(content)}`)
+        const j2 = await r2.json()
+        setAiSources(j2.suggestions || [])
+      } catch (e) {
+        setAiSources([])
+      } finally {
+        setAiLoadingSources(false)
+      }
+    }
+    setTimeout(run, 800)
+  }
+
 
   const handleContextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -96,7 +145,8 @@ const CaptureForm: React.FC<Props> = (p) => {
     <div className="form">
       <textarea 
         value={p.content} 
-        onChange={e => p.setContent(e.target.value)} 
+        onChange={e => { p.setContent(e.target.value); }}
+        onBlur={() => debounceContent()}
         rows={10} 
         placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
       />
@@ -125,6 +175,9 @@ const CaptureForm: React.FC<Props> = (p) => {
           placeholder="Sources"
           label=""
           fieldType="source"
+          aiSuggestions={aiSources}
+          loading={aiLoadingSources}
+          content={p.content}
         />
         <EntityChips
           value={p.tags}
@@ -132,6 +185,9 @@ const CaptureForm: React.FC<Props> = (p) => {
           placeholder="Tags"
           label=""
           fieldType="tag"
+          aiSuggestions={aiTags}
+          loading={aiLoadingTags}
+          content={p.content}
         />
       </div>
     </div>

@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react'
 
 type Suggestion = {
   value: string
-  count: number
-  last_used: string
-  color: string
+  count?: number
+  last_used?: string
+  color?: string
+  confidence?: number
+  origin?: 'db' | 'ai'
+  db_known?: boolean
 }
 
 type Props = {
@@ -13,9 +16,11 @@ type Props = {
   onSelect: (value: string) => void
   visible: boolean
   onClose: () => void
+  externalSuggestions?: Suggestion[]
+  loading?: boolean
 }
 
-const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visible, onClose }) => {
+const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visible, onClose, externalSuggestions, loading: loadingProp }) => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -28,6 +33,12 @@ const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visib
     }
 
     const fetchSuggestions = async () => {
+      if (externalSuggestions && externalSuggestions.length >= 0) {
+        setSuggestions(externalSuggestions)
+        setSelectedIndex(-1)
+        setLoading(!!loadingProp)
+        return
+      }
       setLoading(true)
       try {
         const queryParam = query.trim() ? `query=${encodeURIComponent(query)}&` : ''
@@ -76,29 +87,38 @@ const SuggestionDropdown: React.FC<Props> = ({ fieldType, query, onSelect, visib
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [visible, suggestions, selectedIndex, onSelect, onClose])
 
-  if (!visible || suggestions.length === 0) {
+  if (!visible) {
     return null
   }
 
   return (
     <div className="suggestion-dropdown">
-      {loading ? (
+      {(loading || loadingProp) ? (
         <div className="suggestion-item loading">Loading...</div>
       ) : (
-        suggestions.map((suggestion, index) => (
-          <div
-            key={index}
-            className={`suggestion-item ${index === selectedIndex ? 'selected' : ''}`}
-            onClick={() => {
-              onSelect(suggestion.value)
-              onClose()
-            }}
-            onMouseEnter={() => setSelectedIndex(index)}
-          >
-            <span className="suggestion-value">{suggestion.value}</span>
-            <span className="suggestion-meta">({suggestion.count} uses)</span>
-          </div>
-        ))
+        (suggestions || []).length === 0 ? (
+          <div className="suggestion-item empty">No suggestions</div>
+        ) : (
+          suggestions.map((suggestion, index) => (
+            <div
+              key={index}
+              className={`suggestion-item ${index === selectedIndex ? 'selected' : ''}`}
+              onClick={() => {
+                onSelect(suggestion.value)
+                onClose()
+              }}
+              onMouseEnter={() => setSelectedIndex(index)}
+            >
+              <span className="suggestion-value">{suggestion.value}</span>
+              {typeof suggestion.confidence === 'number' && (
+                <span className="suggestion-meta">{Math.round(suggestion.confidence * 100)}%</span>
+              )}
+              {typeof suggestion.count === 'number' && suggestion.count > 0 && (
+                <span className="suggestion-meta">({suggestion.count})</span>
+              )}
+            </div>
+          ))
+        )
       )}
     </div>
   )
