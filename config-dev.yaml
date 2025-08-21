@@ -33,17 +33,7 @@ ai:
   mode: "local"
   strategy: "hybrid"
   endpoint: "http://127.0.0.1:11434"
-  model: "llama-3.2-3b"
-  temperature: 0
-  suggest_interval_ms: 1500
-  limit_to_existing_tags: false
-
-ai:
-  enabled: true
-  mode: "local"
-  strategy: "hybrid"
-  endpoint: "http://127.0.0.1:11434"
-  model: "llama-3.2-3b"
+  model: "llama3.2:3b"
   temperature: 0
   suggest_interval_ms: 1500
   limit_to_existing_tags: false

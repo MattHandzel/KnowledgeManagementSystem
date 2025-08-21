@@ -1,4 +1,7 @@
+# flake8: noqa: E402
+
 import os
+import sys
 from pathlib import Path
 import argparse
 import asyncio
@@ -15,12 +18,16 @@ from fastapi.staticfiles import StaticFiles
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
 
-from audio_recorder import AudioRecordingManager
-from geolocation import get_device_location
-from main_db import MainDatabase
-from markdown_writer import SafeMarkdownWriter
-from normalization import to_kebab_case, singularize_tag
-from ai_suggester import AISuggester
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from audio_recorder import AudioRecordingManager  # noqa: E402 (important-comment)
+from geolocation import get_device_location  # noqa: E402 (important-comment)
+from main_db import MainDatabase  # noqa: E402 (important-comment)
+from markdown_writer import SafeMarkdownWriter  # noqa: E402 (important-comment)
+from normalization import (
+    to_kebab_case,
+    singularize_tag,
+)  # noqa: E402 (important-comment)
+from ai_suggester import AISuggester  # noqa: E402 (important-comment)
 
 
 app = FastAPI()

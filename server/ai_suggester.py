@@ -47,6 +47,7 @@ class AISuggester:
             {
                 "model": self.model,
                 "prompt": prompt,
+                "stream": False,
                 "options": {"temperature": self.temperature},
             }
         ).encode("utf-8")
