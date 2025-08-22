@@ -37,7 +37,7 @@
 
         src = ./web;
 
-        npmDepsHash = "sha256-jVm5fiVhzpdQ4PgIMPDUutkqFFNX7GLL/xTCId5bfQM=";
+        npmDepsHash = "sha256-1K4dpNYLOoo4DjdzWfMIRHdMbz9sRbUF4hUjQ+78VvA=";
 
         buildPhase = ''
           echo "=== Starting React frontend build ==="

@@ -92,6 +92,17 @@ nix profile install .
 kms-electron
 ```
 
+## Android
+
+A tightly-coupled Android app is included in androidApp/ that hosts the same React UI inside a WebView and uses a native JS bridge to save notes and media into a user-selected directory (SAF). Notes are fully compatible with the desktop app.
+
+Quick start:
+- cd web && npm install && npm run build
+- Copy web/dist into androidApp/app/src/main/assets/www
+- cd androidApp && ./gradlew :app:assembleDebug
+- Install the resulting APK on your device
+- On first run, tap “Pick Notes Directory” to choose your notes folder (SAF). The app will display the capture/media subpaths it will use.
+
 ## Configuration
 
 Edit `config.yaml` to customize:
