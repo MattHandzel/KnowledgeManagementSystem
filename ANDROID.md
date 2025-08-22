@@ -62,7 +62,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - Text: use main input
 - Clipboard: enable and it will include current clipboard if permission allows
 - Image/Screenshot: tap Screenshot; on Android it opens the native file chooser (image/*) and can attach a captured or selected image
-- Audio: TODO: wire native microphone recorder (permission flow now supported via WebView); for now, audio can be attached as a file and will be saved into the media folder
+- Audio (microphone): now supported in-app on Android via WebView getUserMedia + MediaRecorder. Enable the “audio” modality and use the Record/Stop button; the recording is saved into the media folder and referenced from the markdown. If your device’s WebView disallows mic capture, you’ll see a permission prompt. If recording still doesn’t work on your device, please report back and we can add a native MediaRecorder fallback via the JS bridge.
 
 ## Notes on Coupling and Shared Logic
 
