@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { isNative } from '../shared/platform'
 
 type Props = {
   onAudioReady: (file: File) => void
@@ -11,6 +12,10 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
   const [error, setError] = useState<string>('')
   const websocketRef = useRef<WebSocket | null>(null)
   const recorderId = useRef<string>('')
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+
 
   useEffect(() => {
     return () => {
@@ -23,6 +28,24 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
   const startRecording = async () => {
     try {
       setError('')
+      setAudioData([])
+
+      if (isNative()) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        streamRef.current = stream
+        const mr = new MediaRecorder(stream)
+        mediaRecorderRef.current = mr
+        mediaChunksRef.current = []
+        mr.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            mediaChunksRef.current.push(e.data)
+          }
+        }
+        mr.start()
+        setIsRecording(true)
+        return
+      }
+
       const recorderType = systemAudio ? 'system' : 'microphone'
       recorderId.current = `${recorderType}_${Date.now()}`
       
@@ -41,7 +64,6 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
       }
       
       setIsRecording(true)
-      setAudioData([])
       
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const wsUrl = `${wsProtocol}//${window.location.host}/ws/audio-waveform/${recorderId.current}`
@@ -72,6 +94,37 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
 
   const stopRecording = async () => {
     try {
+      if (isNative()) {
+        const mr = mediaRecorderRef.current
+        if (!mr) {
+          throw new Error('No active recording')
+        }
+        const done: Promise<File> = new Promise((resolve, reject) => {
+          mr.onstop = () => {
+            try {
+              const blob = new Blob(mediaChunksRef.current, { type: mr.mimeType || 'audio/webm' })
+              const ext = blob.type.includes('mp4') || blob.type.includes('m4a') ? 'm4a' : (blob.type.includes('webm') ? 'webm' : 'wav')
+              const name = `audio_${Date.now()}.${ext}`
+              const file = new File([blob], name, { type: blob.type || 'audio/webm' })
+              resolve(file)
+            } catch (e) {
+              reject(e)
+            }
+          }
+        })
+        mr.stop()
+        const file = await done
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop())
+          streamRef.current = null
+        }
+        mediaRecorderRef.current = null
+        mediaChunksRef.current = []
+        setIsRecording(false)
+        onAudioReady(file)
+        return
+      }
+
       if (websocketRef.current) {
         websocketRef.current.close()
         websocketRef.current = null
