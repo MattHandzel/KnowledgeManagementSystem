@@ -52,7 +52,7 @@
 
         src = ./electron;
 
-        npmDepsHash = "sha256-DPdeOcPiklVZ36xPcEdMx3yAMJdOV06A91PejTYo5D0=";
+        npmDepsHash = pkgs.lib.fakeHash;
 
         dontBuild = true;
 
