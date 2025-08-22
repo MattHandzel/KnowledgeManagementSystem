@@ -32,7 +32,7 @@
 
         src = ./web;
 
-        npmDepsHash = pkgs.lib.fakeHash;
+        npmDepsHash = "sha256-1K4dpNYLOoo4DjdzWfMIRHdMbz9sRbUF4hUjQ+78VvA=";
 
         buildPhase = ''
           echo "=== Starting React frontend build ==="
