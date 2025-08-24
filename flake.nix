@@ -47,7 +47,6 @@
 
         installPhase = ''
           mkdir -p $out
-          rm -rf dist/*
           cp -r dist/* $out/
         '';
       };
