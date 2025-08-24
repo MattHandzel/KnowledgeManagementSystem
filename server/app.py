@@ -359,8 +359,7 @@ async def api_ai_suggestions_feedback(field_type: str = Form(...), value: str = 
 
 
 
-if web_dist_path.exists():
-    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
+
 
 
 @app.get("/api/recent-values")
@@ -482,6 +481,8 @@ async def websocket_audio_waveform(websocket: WebSocket, recorder_id: str):
         audio_manager.remove_websocket_connection(recorder_id, websocket)
 
 
+if web_dist_path.exists():
+    app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Knowledge Management System Server")
     parser.add_argument("--config", type=str, help="Path to config file")
