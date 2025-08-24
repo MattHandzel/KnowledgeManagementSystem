@@ -141,19 +141,32 @@ def _sha_content(s: str) -> str:
 
 def _ollama_chat(host: str, port: int, model: str, temperature: float, prompt: str) -> Optional[dict]:
     try:
-        conn = http.client.HTTPConnection(host.replace("http://", "").replace("https://", ""), port=port, timeout=15)
-        payload = json.dumps({"model": model, "prompt": prompt, "stream": False, "options": {"temperature": temperature}})
+        conn = http.client.HTTPConnection(host.replace("http://", "").replace("https://", ""), port=port, timeout=30)
+        payload = json.dumps({
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": temperature},
+        })
         headers = {"Content-Type": "application/json"}
         conn.request("POST", "/api/generate", payload, headers)
         res = conn.getresponse()
         data = res.read()
         conn.close()
-        j = json.loads(data.decode("utf-8"))
+        raw = data.decode("utf-8")
+        j = json.loads(raw)
         if "response" in j:
+            txt = j.get("response") or ""
             try:
-                return json.loads(j["response"])
+                return json.loads(txt)
             except Exception:
-                return None
+                m = re.search(r"\\{\\s*\\\"items\\\"\\s*:\\s*\\[.*?\\]\\s*\\}", txt, flags=re.DOTALL)
+                if m:
+                    try:
+                        return json.loads(m.group(0))
+                    except Exception:
+                        return None
         return None
     except Exception:
         return None
