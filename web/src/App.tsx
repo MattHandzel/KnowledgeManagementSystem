@@ -186,7 +186,7 @@ const App: React.FC = () => {
       }
     }
     check()
-    t = window.setInterval(check, 10000)
+    t = window.setInterval(check, 1000)
     return () => { if (t) window.clearInterval(t) }
   }, [])
 

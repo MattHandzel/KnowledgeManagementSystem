@@ -210,7 +210,6 @@ def api_config():
     return cfg
 
 
-@app.get("/api/clipboard")
 def _ollama_health(host: str, port: int) -> bool:
     try:
         conn = http.client.HTTPConnection(
@@ -225,6 +224,7 @@ def _ollama_health(host: str, port: int) -> bool:
         return False
 
 
+@app.get("/api/clipboard")
 def api_clipboard():
     """Get current clipboard content."""
     try:

@@ -41,6 +41,7 @@
 
         buildPhase = ''
           echo "=== Starting React frontend build ==="
+          rm -rf dist
           npm run build --verbose
           echo "=== Frontend build completed ==="
         '';
