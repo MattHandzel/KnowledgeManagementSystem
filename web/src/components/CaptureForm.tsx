@@ -204,7 +204,7 @@ const CaptureForm: React.FC<Props> = (p) => {
         value={p.content} 
         onChange={e => p.setContent(e.target.value)} 
         onBlur={() => { if (aiConfigRef.current?.on_blur) triggerAISuggestions() }}
-        rows={10} 
+        rows={8} 
         placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
       />
       <div className={`context-input-container`}>
