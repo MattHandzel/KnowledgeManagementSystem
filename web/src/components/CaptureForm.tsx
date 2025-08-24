@@ -209,14 +209,14 @@ const CaptureForm: React.FC<Props> = (p) => {
         onChange={e => p.setContent(e.target.value)} 
         onBlur={() => { if (aiConfigRef.current?.on_blur) triggerAISuggestions() }}
         rows={8} 
-        placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
+        placeholder="write your capture content here..."
       />
       <div className={`context-input-container`}>
         <input 
           value={p.context} 
           onChange={handleContextChange}
           onFocus={handleContextFocus}
-          onBlur={() => setTimeout(() => setShowContextSuggestions(false), 200)}
+          onBlur={() => setTimeout(() => setShowContextSuggestions(false), 250)}
           placeholder="Context"
           className=""
           style={{ color: contextColor }}

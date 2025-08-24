@@ -124,6 +124,8 @@
           set -e
 
           export KMS_ROOT="$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kms-capture"
+          echo KMS_ROOT
+          sleep 100
           export PYTHONPATH="$KMS_ROOT:$KMS_ROOT/server:$PYTHONPATH"
 
           # Set up writable data directory for production

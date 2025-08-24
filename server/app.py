@@ -147,15 +147,18 @@ def _ollama_chat(
     host: str, port: int, model: str, temperature: float, prompt: str
 ) -> Optional[dict]:
     try:
-        conn = http.client.HTTPConnection(host.replace("http://", "").replace("https://", ""), port=port, timeout=30)
-        payload = json.dumps({
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-
-            "options": {"temperature": temperature},
-        })
+        conn = http.client.HTTPConnection(
+            host.replace("http://", "").replace("https://", ""), port=port, timeout=30
+        )
+        payload = json.dumps(
+            {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": temperature},
+            }
+        )
         headers = {"Content-Type": "application/json"}
         conn.request("POST", "/api/generate", payload, headers)
         res = conn.getresponse()
@@ -210,7 +213,9 @@ def api_config():
 @app.get("/api/clipboard")
 def _ollama_health(host: str, port: int) -> bool:
     try:
-        conn = http.client.HTTPConnection(host.replace("http://", "").replace("https://", ""), port=port, timeout=3)
+        conn = http.client.HTTPConnection(
+            host.replace("http://", "").replace("https://", ""), port=port, timeout=3
+        )
         conn.request("GET", "/api/version")
         res = conn.getresponse()
         ok = res.status == 200
@@ -219,8 +224,8 @@ def _ollama_health(host: str, port: int) -> bool:
     except Exception:
         return False
 
-def api_clipboard():
 
+def api_clipboard():
     """Get current clipboard content."""
     try:
         result = subprocess.run(
@@ -545,7 +550,7 @@ async def websocket_audio_waveform(websocket: WebSocket, recorder_id: str):
 @app.get("/api/ai/health")
 def api_ai_health():
     cfg = normalize_config(load_config(_config_path))
-    ai_cfg = (cfg.get("ai") or {})
+    ai_cfg = cfg.get("ai") or {}
     mode = ai_cfg.get("mode") or "local"
     provider = ai_cfg.get("provider") or "ollama"
     connected = False
@@ -556,7 +561,13 @@ def api_ai_health():
         port = int(o.get("port") or 11434)
         connected = _ollama_health(host, port)
         details = {"host": host, "port": port, "model": o.get("model") or "llama3.2:3b"}
-    return {"provider": provider, "mode": mode, "connected": bool(connected), "details": details}
+    return {
+        "provider": provider,
+        "mode": mode,
+        "connected": bool(connected),
+        "details": details,
+    }
+
 
 if web_dist_path.exists():
     app.mount("/", StaticFiles(directory=str(web_dist_path), html=True), name="static")
