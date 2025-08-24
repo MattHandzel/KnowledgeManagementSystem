@@ -28,7 +28,7 @@
 
       webBuild = pkgs.buildNpmPackage {
         pname = "kms-web-build";
-        version = "1.0.0";
+        version = "1.0.1";
 
         src = ./web;
 
@@ -48,7 +48,7 @@
 
       electronDeps = pkgs.buildNpmPackage {
         pname = "kms-electron-deps";
-        version = "1.0.0";
+        version = "1.0.1";
 
         src = ./electron;
 
@@ -66,7 +66,7 @@
 
       kms-capture = pkgs.stdenv.mkDerivation {
         pname = "kms-capture";
-        version = "1.0.0";
+        version = "1.0.1";
 
         src = ./.;
 
