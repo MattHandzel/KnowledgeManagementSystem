@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import EntityChips from './EntityChips'
 import SuggestionDropdown from './SuggestionDropdown'
+
+type AISuggestion = { value: string; confidence?: number }
 
 type Props = {
   content: string
@@ -19,6 +21,13 @@ type Props = {
 const CaptureForm: React.FC<Props> = (p) => {
   const [showContextSuggestions, setShowContextSuggestions] = useState(false)
   const [contextColor, setContextColor] = useState('')
+  const [aiTagSuggestions, setAiTagSuggestions] = useState<AISuggestion[]>([])
+  const [aiSourceSuggestions, setAiSourceSuggestions] = useState<AISuggestion[]>([])
+  const [generatingTags, setGeneratingTags] = useState(false)
+  const [generatingSources, setGeneratingSources] = useState(false)
+  const [dev, setDev] = useState(false)
+  const aiConfigRef = useRef<{ on_blur: boolean; interval_ms: number; dev_regen: boolean } | null>(null)
+  const lastContentHash = useRef<string>('')
 
   useEffect(() => {
     loadPersistentValues()
@@ -28,6 +37,10 @@ const CaptureForm: React.FC<Props> = (p) => {
     try {
       const configRes = await fetch('/api/config')
       const config = await configRes.json()
+      setDev(!!config?.is_dev)
+      const ai = config?.ai || {}
+      const triggers = ai?.triggers || {}
+      aiConfigRef.current = { on_blur: !!triggers.on_blur, interval_ms: triggers.interval_ms || 5000, dev_regen: !!(ai?.behavior?.dev_enable_regenerate_button) }
       
       if (!config.capture?.restore_previous_fields) {
         return
@@ -49,7 +62,75 @@ const CaptureForm: React.FC<Props> = (p) => {
         p.setContext(recentValues.context[0])
       }
     } catch (error) {
-      console.error('Failed to load persistent values:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (!aiConfigRef.current) return
+    const intervalMs = aiConfigRef.current.interval_ms
+    let t: number | undefined
+    const onFocus = () => {
+      if (intervalMs > 0) {
+        t = window.setInterval(() => {
+          if (document.activeElement && (document.activeElement as HTMLElement).tagName.toLowerCase() === 'textarea') {
+            triggerAISuggestions()
+          }
+        }, intervalMs)
+      }
+    }
+    const onBlur = () => {
+      if (t) window.clearInterval(t)
+      if (aiConfigRef.current?.on_blur) triggerAISuggestions()
+    }
+    window.addEventListener('focus', onFocus, true)
+    window.addEventListener('blur', onBlur, true)
+    return () => {
+      window.removeEventListener('focus', onFocus, true)
+      window.removeEventListener('blur', onBlur, true)
+      if (t) window.clearInterval(t)
+    }
+  }, [p.content])
+
+  const computeHash = (s: string) => {
+    try {
+      const enc = new TextEncoder().encode(s)
+      let h = 0
+      for (let i = 0; i < enc.length; i++) {
+        h = (h * 31 + enc[i]) >>> 0
+      }
+      return String(h)
+    } catch {
+      return String(s.length)
+    }
+  }
+
+  const triggerAISuggestions = async () => {
+    const c = (p.content || '').trim()
+    if (!c) return
+    const h = computeHash(c)
+    if (h === lastContentHash.current) return
+    lastContentHash.current = h
+    setGeneratingTags(true)
+    try {
+      const tagRes = await fetch(`/api/ai-suggestions/tag?limit=8&content=${encodeURIComponent(c)}`)
+      const tagJson = await tagRes.json()
+      const ai = tagJson.ai || []
+      setAiTagSuggestions(ai)
+    } catch (e) {
+      setAiTagSuggestions([])
+    } finally {
+      setGeneratingTags(false)
+    }
+    setGeneratingSources(true)
+    try {
+      const srcRes = await fetch(`/api/ai-suggestions/source?limit=8&content=${encodeURIComponent(c)}`)
+      const srcJson = await srcRes.json()
+      const ai = srcJson.ai || []
+      setAiSourceSuggestions(ai)
+    } catch (e) {
+      setAiSourceSuggestions([])
+    } finally {
+      setGeneratingSources(false)
     }
   }
 
@@ -74,9 +155,34 @@ const CaptureForm: React.FC<Props> = (p) => {
       const data = await response.json()
       setContextColor(data.exists ? 'var(--text-muted)' : '')
     } catch (error) {
-      console.error('Failed to check context existence:', error)
       setContextColor('')
     }
+  }
+
+  const onAcceptAI = async (field: 'tag' | 'source', value: string, confidence?: number) => {
+    try {
+      const fd = new FormData()
+      fd.append('field_type', field)
+      fd.append('value', value)
+      fd.append('action', 'accepted')
+      if (typeof confidence === 'number') fd.append('confidence', String(confidence))
+      fd.append('content_hash', lastContentHash.current)
+      await fetch('/api/ai-suggestions/feedback', { method: 'POST', body: fd })
+    } catch {}
+  }
+
+  const onDeclineAI = async (field: 'tag' | 'source', value: string, confidence?: number) => {
+    try {
+      const fd = new FormData()
+      fd.append('field_type', field)
+      fd.append('value', value)
+      fd.append('action', 'declined')
+      if (typeof confidence === 'number') fd.append('confidence', String(confidence))
+      fd.append('content_hash', lastContentHash.current)
+      await fetch('/api/ai-suggestions/feedback', { method: 'POST', body: fd })
+    } catch {}
+    if (field === 'tag') setAiTagSuggestions(prev => prev.filter(x => x.value !== value))
+    else setAiSourceSuggestions(prev => prev.filter(x => x.value !== value))
   }
 
   const renderInlineMarkdown = (text: string) => {
@@ -97,10 +203,11 @@ const CaptureForm: React.FC<Props> = (p) => {
       <textarea 
         value={p.content} 
         onChange={e => p.setContent(e.target.value)} 
+        onBlur={() => { if (aiConfigRef.current?.on_blur) triggerAISuggestions() }}
         rows={10} 
         placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
       />
-      <div className="context-input-container">
+      <div className={`context-input-container`}>
         <input 
           value={p.context} 
           onChange={handleContextChange}
@@ -121,17 +228,27 @@ const CaptureForm: React.FC<Props> = (p) => {
       <div className="tags-sources-row">
         <EntityChips
           value={p.sources}
-          onChange={p.setSources}
+          onChange={(v) => { p.setSources(v) }}
           placeholder="Sources"
           label=""
           fieldType="source"
+          aiSuggestions={aiSourceSuggestions}
+          generating={generatingSources}
+          devRegenerate={dev ? (() => triggerAISuggestions()) : null}
+          onAcceptAISuggestion={(value, conf) => { onAcceptAI('source', value, conf) }}
+          onDeclineAISuggestion={(value, conf) => { onDeclineAI('source', value, conf) }}
         />
         <EntityChips
           value={p.tags}
-          onChange={p.setTags}
+          onChange={(v) => { p.setTags(v) }}
           placeholder="Tags"
           label=""
           fieldType="tag"
+          aiSuggestions={aiTagSuggestions}
+          generating={generatingTags}
+          devRegenerate={dev ? (() => triggerAISuggestions()) : null}
+          onAcceptAISuggestion={(value, conf) => { onAcceptAI('tag', value, conf) }}
+          onDeclineAISuggestion={(value, conf) => { onDeclineAI('tag', value, conf) }}
         />
       </div>
     </div>

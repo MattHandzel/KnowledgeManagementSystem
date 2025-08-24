@@ -18,6 +18,11 @@ from hypercorn.asyncio import serve
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from audio_recorder import AudioRecordingManager
 from geolocation import get_device_location
+import hashlib
+import json
+import re
+import http.client
+
 from main_db import MainDatabase
 from markdown_writer import SafeMarkdownWriter
 
@@ -37,6 +42,8 @@ if not web_dist_path.exists():
 main_db = None
 _config_path = None
 audio_manager = AudioRecordingManager()
+_ai_cache = {}
+
 
 
 def get_main_db():
@@ -112,10 +119,61 @@ def normalize_config(cfg):
         "capture": cfg.get("capture", {}),
         "keybindings": cfg.get("keybindings", {}),
         "theme": cfg.get("theme", {}),
+        "ai": cfg.get("ai", {}),
         "mode": mode,
         "is_dev": is_dev,
     }
     return d
+def _kebab_case(s: str) -> str:
+    s = s.strip().lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = re.sub(r"-+", "-", s)
+    return s.strip("-")
+
+def _singularize(s: str) -> str:
+    t = s.strip()
+    if len(t) > 3 and t.endswith("s"):
+        return t[:-1]
+    return t
+
+def _sha_content(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+def _ollama_chat(host: str, port: int, model: str, temperature: float, prompt: str) -> Optional[dict]:
+    try:
+        conn = http.client.HTTPConnection(host.replace("http://", "").replace("https://", ""), port=port, timeout=15)
+        payload = json.dumps({"model": model, "prompt": prompt, "stream": False, "options": {"temperature": temperature}})
+        headers = {"Content-Type": "application/json"}
+        conn.request("POST", "/api/generate", payload, headers)
+        res = conn.getresponse()
+        data = res.read()
+        conn.close()
+        j = json.loads(data.decode("utf-8"))
+        if "response" in j:
+            try:
+                return json.loads(j["response"])
+            except Exception:
+                return None
+        return None
+    except Exception:
+        return None
+
+def _build_prompt(field_type: str, content: str, cfg: dict) -> str:
+    if field_type == "tag":
+        return (
+            "Given the user's note content, extract 3-10 tags as singular nouns or short concepts. "
+            "Do not include duplicates. Output JSON with array 'items', each item {\"value\": string, \"confidence\": number between 0 and 1}. "
+            "Prefer entities, books, places, concepts mentioned. Ensure singular form (e.g., 'quote' not 'quotes'). "
+            "Content:\n" + content
+        )
+    if field_type == "source":
+        return (
+            "From the user's note content, infer sources. If content mentions 'I spoke to James', suggest 'james-fang' if last name present; otherwise kebab-case the person/entity. "
+            "If content is reflection by the user referencing a book like 'Never Eat Alone', include both 'mine' and 'never-eat-alone'. "
+            "Normalize all sources to kebab-case. Output JSON with array 'items', each item {\"value\": string, \"confidence\": number between 0 and 1}. "
+            "Content:\n" + content
+        )
+    return ""
 
 
 @app.get("/api/config")
@@ -234,6 +292,7 @@ async def api_capture(
         files_meta.append({"path": screenshot_path, "type": screenshot_type})
     location_data = get_device_location()
 
+
     capture = {
         "timestamp": ts,
         "content": content or "",
@@ -266,10 +325,8 @@ async def api_capture(
 
 @app.get("/api/suggestions/{field_type}")
 def api_suggestions(field_type: str, query: str = "", limit: int = 10):
-    """Get suggestions for a field type with optional query filtering."""
     if field_type not in ["tag", "source", "context"]:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
-
     suggestions = get_main_db().get_suggestions(field_type, query, limit)
     return {
         "suggestions": [
@@ -292,6 +349,14 @@ def api_suggestion_exists(field_type: str, value: str):
 
     exists = get_main_db().suggestion_exists(value, field_type)
     return {"exists": exists}
+
+@app.post("/api/ai-suggestions/feedback")
+async def api_ai_suggestions_feedback(field_type: str = Form(...), value: str = Form(...), action: str = Form(...), confidence: Optional[float] = Form(None), edited_value: Optional[str] = Form(None), content_hash: Optional[str] = Form(None)):
+    if field_type not in ["tag", "source", "context"]:
+        return JSONResponse({"error": "Invalid field type"}, status_code=400)
+    get_main_db().store_suggestion_feedback(field_type, value, action, confidence, edited_value, content_hash)
+    return {"ok": True}
+
 
 
 if web_dist_path.exists():
@@ -343,6 +408,58 @@ def api_audio_stop(recorder_id: str = Form(...)):
         "filename": filename,
         "filepath": str(filepath),
     }
+
+@app.get("/api/ai-suggestions/{field_type}")
+def api_ai_suggestions(field_type: str, content: str = "", limit: int = 10):
+    if field_type not in ["tag", "source"]:
+        return JSONResponse({"error": "Invalid field type"}, status_code=400)
+    cfg = normalize_config(load_config(_config_path))
+    content_norm = (content or "").strip()
+    if not content_norm:
+        return {"ai": [], "content_hash": None}
+    h = _sha_content(content_norm)
+    k = f"{field_type}:{h}"
+    ai_mode = (cfg.get("ai") or {}).get("mode") or "local"
+    ai_cfg = (cfg.get("ai") or {}).get("ollama") or {}
+    temperature = float((cfg.get("ai") or {}).get("ollama", {}).get("temperature", 0) or 0)
+    suggest_existing_only = bool((cfg.get("ai") or {}).get("behavior", {}).get("suggest_existing_only", False))
+    include_db_boost = bool((cfg.get("ai") or {}).get("behavior", {}).get("include_db_priority_boost", True))
+    if k in _ai_cache:
+        ai_items = _ai_cache[k]
+    else:
+        prompt = _build_prompt(field_type, content_norm, cfg)
+        ai_resp = None
+        if ai_mode in ["local", "hybrid"]:
+            host = (ai_cfg.get("host") or "http://127.0.0.1")
+            port = int(ai_cfg.get("port") or 11434)
+            model = (ai_cfg.get("model") or "llama3.2:3b")
+            ai_resp = _ollama_chat(host, port, model, temperature, prompt)
+        items = []
+        if isinstance(ai_resp, dict) and isinstance(ai_resp.get("items"), list):
+            for it in ai_resp["items"]:
+                v = str(it.get("value", "")).strip()
+                if not v:
+                    continue
+                c = float(it.get("confidence", 0.5))
+                if field_type == "tag" and (cfg.get("ai") or {}).get("normalization", {}).get("tags_singular", True):
+                    v = _singularize(v)
+                if field_type == "source" and (cfg.get("ai") or {}).get("normalization", {}).get("sources_kebab", True):
+                    v = _kebab_case(v)
+                items.append({"value": v, "confidence": c})
+        _ai_cache[k] = items
+        ai_items = items
+    if suggest_existing_only:
+        base = get_main_db().get_suggestions(field_type, "", 500)
+        db_set = set([s.value for s in base])
+        ai_items = [x for x in ai_items if x["value"] in db_set]
+    if include_db_boost:
+        boosted = []
+        for x in ai_items:
+            b = 0.2 if get_main_db().suggestion_exists(x["value"], field_type) else 0.0
+            boosted.append({"value": x["value"], "confidence": min(1.0, max(0.0, x["confidence"] + b))})
+        ai_items = boosted
+    ai_items = sorted(ai_items, key=lambda x: x.get("confidence", 0), reverse=True)[:limit]
+    return {"ai": ai_items, "content_hash": h}
 
 
 @app.get("/api/audio/status/{recorder_id}")
