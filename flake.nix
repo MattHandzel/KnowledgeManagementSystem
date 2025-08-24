@@ -24,6 +24,11 @@
           pydantic
           python-multipart
           pyyaml
+          pytest
+          pytest-mock
+          numpy
+          sounddevice
+          websockets
         ]);
 
       webBuild = pkgs.buildNpmPackage {
