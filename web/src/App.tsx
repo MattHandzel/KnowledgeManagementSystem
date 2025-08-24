@@ -23,6 +23,8 @@ const App: React.FC = () => {
   const [modalities, setModalities] = useState<string[]>(['text'])
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [aiConnected, setAiConnected] = useState<'checking' | 'ok' | 'err'>('checking')
+
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
@@ -166,11 +168,27 @@ const App: React.FC = () => {
   const pollMs = config?.ui?.clipboard_poll_ms || 200
 
   useEffect(() => {
-    if (popup) {
-      const timer = setTimeout(() => setPopup(null), 5000)
-      return () => clearTimeout(timer)
-    }
+    if (!popup) return
+    const timer = setTimeout(() => setPopup(null), 5000)
+    return () => clearTimeout(timer)
   }, [popup])
+
+  useEffect(() => {
+    let t: number | undefined
+    const check = async () => {
+      try {
+        const r = await fetch('/api/ai/health', { cache: 'no-store' })
+        if (!r.ok) throw new Error('bad')
+        const j = await r.json()
+        setAiConnected(j.connected ? 'ok' : 'err')
+      } catch {
+        setAiConnected('err')
+      }
+    }
+    check()
+    t = window.setInterval(check, 10000)
+    return () => { if (t) window.clearInterval(t) }
+  }, [])
 
 
   return (
@@ -223,6 +241,10 @@ const App: React.FC = () => {
           {popup.message}
         </div>
       )}
+      <div className="ai-status" title={aiConnected === 'ok' ? 'Connected to AI server' : 'AI server unavailable'}>
+        <div className={`dot ${aiConnected === 'ok' ? 'ok' : 'err'}`}></div>
+        {aiConnected === 'ok' ? 'AI: Connected' : aiConnected === 'checking' ? 'AI: Checking…' : 'AI: Offline'}
+      </div>
     </div>
   )
 }

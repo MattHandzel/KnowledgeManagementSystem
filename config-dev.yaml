@@ -29,6 +29,25 @@ capture:
   geolocation_enabled: true
   max_content_length: 10000
 
+ai:
+  mode: "local"
+  provider: "ollama"
+  ollama:
+    host: "http://76.191.29.237"
+    port: 11434
+    model: "llama3.2:3b"
+    temperature: 0
+  triggers:
+    on_blur: true
+    interval_ms: 5000
+  normalization:
+    tags_singular: true
+    sources_kebab: true
+  behavior:
+    suggest_existing_only: false
+    include_db_priority_boost: true
+    dev_enable_regenerate_button: true
+
 development:
   debug_logging: true
   test_mode: true

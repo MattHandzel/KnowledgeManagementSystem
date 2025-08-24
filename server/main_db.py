@@ -2,7 +2,7 @@ import sqlite3
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import difflib
 
@@ -89,6 +89,21 @@ class MainDatabase:
                     file_name TEXT,
                     timestamp TEXT NOT NULL,
                     FOREIGN KEY (capture_id) REFERENCES captures (capture_id)
+                )
+            """
+            )
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS suggestion_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    field_type TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    confidence REAL,
+                    edited_value TEXT,
+                    content_hash TEXT,
+                    timestamp TEXT NOT NULL
                 )
             """
             )
@@ -199,6 +214,18 @@ class MainDatabase:
 
             conn.commit()
             print("DEBUG: Database transaction committed successfully")
+
+    def store_suggestion_feedback(self, field_type: str, value: str, action: str, confidence: Optional[float] = None, edited_value: Optional[str] = None, content_hash: Optional[str] = None):
+        ts = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO suggestion_feedback (field_type, value, action, confidence, edited_value, content_hash, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (field_type, value, action, confidence, edited_value, content_hash, ts),
+            )
+            conn.commit()
 
     def get_suggestions(
         self, field_type: str, query: str = "", limit: int = 10

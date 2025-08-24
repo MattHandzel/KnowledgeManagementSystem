@@ -1,15 +1,22 @@
 import React, { useState, KeyboardEvent } from 'react'
 import SuggestionDropdown from './SuggestionDropdown'
 
+type AISuggestion = { value: string; confidence?: number }
+
 type Props = {
   value: string
   onChange: (value: string) => void
   placeholder: string
   label: string
   fieldType: 'tag' | 'source'
+  aiSuggestions?: AISuggestion[]
+  onAcceptAISuggestion?: (value: string, confidence?: number) => void
+  onDeclineAISuggestion?: (value: string, confidence?: number) => void
+  generating?: boolean
+  devRegenerate?: (() => void) | null
 }
 
-const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fieldType }) => {
+const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fieldType, aiSuggestions = [], onAcceptAISuggestion, onDeclineAISuggestion, generating = false, devRegenerate = null }) => {
   const [inputValue, setInputValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [inputColor, setInputColor] = useState('')
@@ -72,7 +79,6 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
       const data = await response.json()
       setInputColor(data.exists ? 'var(--text-muted)' : '')
     } catch (error) {
-      console.error('Failed to check suggestion existence:', error)
       setInputColor('')
     }
   }
@@ -82,8 +88,21 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
     onChange(newEntities.join(', '))
   }
   
+  const acceptAISuggestion = (s: AISuggestion) => {
+    if (!s.value) return
+    if (!entities.includes(s.value)) {
+      const newEntities = [...entities, s.value]
+      onChange(newEntities.join(', '))
+    }
+    if (onAcceptAISuggestion) onAcceptAISuggestion(s.value, s.confidence)
+  }
+
+  const editAISuggestion = (s: AISuggestion) => {
+    setInputValue(s.value)
+  }
+
   return (
-    <div className="entity-chips">
+    <div className={`entity-chips ${generating ? 'generating' : ''}`}>
       <label>{label}</label>
       <div className="chips-container">
         <div className="chip-input-container">
@@ -123,6 +142,23 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             }}
           />
         </div>
+        {aiSuggestions && aiSuggestions.length > 0 && (
+          <div className="chips-row suggested">
+            {aiSuggestions.map((s, i) => (
+              <span key={`${s.value}-${i}`} className="chip suggested-chip" onDoubleClick={() => editAISuggestion(s)}>
+                <span className="chip-label" onClick={() => acceptAISuggestion(s)}>{s.value}</span>
+                {typeof s.confidence === 'number' && <span className="chip-conf"> {(s.confidence * 100).toFixed(0)}%</span>}
+                <button
+                  type="button"
+                  onClick={() => { if (onDeclineAISuggestion) onDeclineAISuggestion(s.value, s.confidence) }}
+                  className="chip-remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {entities.length > 0 && (
           <div className="chips-row">
             {entities.map((entity, index) => (
@@ -137,6 +173,11 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
                 </button>
               </span>
             ))}
+          </div>
+        )}
+        {devRegenerate && (
+          <div className="ai-actions">
+            <button type="button" onClick={() => devRegenerate()}>Regenerate</button>
           </div>
         )}
       </div>
