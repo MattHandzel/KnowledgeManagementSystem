@@ -83,7 +83,6 @@ const CaptureForm: React.FC<Props> = (p) => {
     }
     const onBlur = () => {
       if (t) window.clearInterval(t)
-      if (aiConfigRef.current?.on_blur) triggerAISuggestions()
     }
     window.addEventListener('focus', onFocus, true)
     window.addEventListener('blur', onBlur, true)
@@ -207,7 +206,12 @@ const CaptureForm: React.FC<Props> = (p) => {
       <textarea 
         value={p.content} 
         onChange={e => p.setContent(e.target.value)} 
-        onBlur={() => { if (aiConfigRef.current?.on_blur) triggerAISuggestions() }}
+        onBlur={(e) => { 
+          if (aiConfigRef.current?.on_blur && e.relatedTarget && 
+              (e.relatedTarget as HTMLElement).tagName.toLowerCase() !== 'textarea') {
+            triggerAISuggestions()
+          }
+        }}
         rows={8} 
         placeholder="write your capture content here..."
       />

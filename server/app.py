@@ -147,8 +147,11 @@ def _ollama_chat(
     host: str, port: int, model: str, temperature: float, prompt: str
 ) -> Optional[dict]:
     try:
+        parsed_host = host.replace("http://", "").replace("https://", "")
+        if ":" in parsed_host:
+            parsed_host = parsed_host.split(":")[0]
         conn = http.client.HTTPConnection(
-            host.replace("http://", "").replace("https://", ""), port=port, timeout=30
+            parsed_host, port=port, timeout=30
         )
         payload = json.dumps(
             {
@@ -212,8 +215,11 @@ def api_config():
 
 def _ollama_health(host: str, port: int) -> bool:
     try:
+        parsed_host = host.replace("http://", "").replace("https://", "")
+        if ":" in parsed_host:
+            parsed_host = parsed_host.split(":")[0]
         conn = http.client.HTTPConnection(
-            host.replace("http://", "").replace("https://", ""), port=port, timeout=3
+            parsed_host, port=port, timeout=3
         )
         conn.request("GET", "/api/version")
         res = conn.getresponse()
