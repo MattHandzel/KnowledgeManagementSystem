@@ -51,7 +51,7 @@ body::-webkit-scrollbar { display: none; }
 body { -ms-overflow-style: none; scrollbar-width: none; }
 .container {  
   margin: 0 auto; 
-  padding: 16px; 
+  padding: 8px; 
   background: var(--container-bg); 
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -79,8 +79,8 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   background: var(--form-bg); 
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  padding: 20px; 
-  border-radius: 16px; 
+  padding: 12px; 
+  border-radius: 14px; 
   border: 1px solid var(--glass-border); 
   box-shadow: 
     0 8px 32px rgba(0,0,0,0.1),
@@ -101,15 +101,15 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
 }
 .form textarea, .form input { 
   width: 100%; 
-  padding: 16px 20px; 
-  margin-bottom: 16px; 
-  border-radius: 12px; 
+  padding: 10px 12px; 
+  margin-bottom: 8px; 
+  border-radius: 10px; 
   border: 2px solid var(--glass-border); 
   background: var(--input-bg); 
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text-color); 
-  font-size: 15px; 
+  font-size: 14px; 
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: -0.01em;
@@ -139,17 +139,17 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
     0 4px 12px rgba(0,0,0,0.08),
     inset 0 1px 0 rgba(255,255,255,0.1);
 }
-.tags-sources-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.tags-sources-row { display: flex; gap: 6px; margin-bottom: 4px; }
 .tags-sources-row > * { flex: 1; }
-.actions { margin-top: 8px; }
+.actions { margin-top: 6px; }
 .actions button { 
-  padding: 16px 32px; 
+  padding: 10px 20px; 
   background: var(--accent-color); 
   color: white; 
   border: none; 
-  border-radius: 50px; 
+  border-radius: 40px; 
   font-weight: 700; 
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: -0.01em;
   cursor: pointer; 
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -189,14 +189,14 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
 }
 .mods { 
   display: flex; 
-  gap: 12px; 
-  margin-bottom: 20px; 
+  gap: 8px; 
+  margin-bottom: 12px; 
   flex-wrap: wrap; 
-  padding: 16px; 
+  padding: 10px; 
   background: var(--glass-bg); 
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px; 
+  border-radius: 16px; 
   border: 1px solid var(--glass-border); 
   box-shadow: 
     0 8px 32px rgba(0,0,0,0.12),
@@ -253,9 +253,9 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   transition: all 0.1s ease;
 }
 .clipboard { 
-  margin-top: 20px; 
+  margin-top: 12px; 
   border: 2px solid var(--glass-border); 
-  border-radius: 16px; 
+  border-radius: 14px; 
   background: var(--glass-bg); 
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -265,7 +265,7 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   overflow: hidden;
 }
 .clipboard .title { 
-  padding: 16px 20px; 
+  padding: 10px 12px; 
   font-weight: 700; 
   font-size: 14px;
   letter-spacing: -0.01em;
@@ -282,7 +282,7 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   font-size: 16px;
 }
 .clipboard .body { 
-  padding: 20px; 
+  padding: 12px; 
   white-space: pre-wrap; 
   font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; 
   font-size: 13px; 
@@ -413,6 +413,41 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   color: white;
   box-shadow: 
     0 8px 32px rgba(239, 68, 68, 0.3);
+}
+
+.ai-status {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.15),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.ai-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.ai-status .dot.ok {
+  background: var(--success-color);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+}
+.ai-status .dot.err {
+  background: var(--error-color);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
 }
 
 .entity-chips {

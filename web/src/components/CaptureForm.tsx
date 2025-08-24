@@ -26,6 +26,7 @@ const CaptureForm: React.FC<Props> = (p) => {
   const [generatingTags, setGeneratingTags] = useState(false)
   const [generatingSources, setGeneratingSources] = useState(false)
   const [dev, setDev] = useState(false)
+  const [aiReady, setAiReady] = useState(false)
   const aiConfigRef = useRef<{ on_blur: boolean; interval_ms: number; dev_regen: boolean } | null>(null)
   const lastContentHash = useRef<string>('')
 
@@ -41,6 +42,7 @@ const CaptureForm: React.FC<Props> = (p) => {
       const ai = config?.ai || {}
       const triggers = ai?.triggers || {}
       aiConfigRef.current = { on_blur: !!triggers.on_blur, interval_ms: triggers.interval_ms || 5000, dev_regen: !!(ai?.behavior?.dev_enable_regenerate_button) }
+      setAiReady(true)
       
       if (!config.capture?.restore_previous_fields) {
         return
@@ -66,11 +68,12 @@ const CaptureForm: React.FC<Props> = (p) => {
   }
 
   useEffect(() => {
-    if (!aiConfigRef.current) return
+    if (!aiReady || !aiConfigRef.current) return
     const intervalMs = aiConfigRef.current.interval_ms
     let t: number | undefined
     const onFocus = () => {
       if (intervalMs > 0) {
+        if (t) window.clearInterval(t)
         t = window.setInterval(() => {
           if (document.activeElement && (document.activeElement as HTMLElement).tagName.toLowerCase() === 'textarea') {
             triggerAISuggestions()
@@ -84,12 +87,13 @@ const CaptureForm: React.FC<Props> = (p) => {
     }
     window.addEventListener('focus', onFocus, true)
     window.addEventListener('blur', onBlur, true)
+    onFocus()
     return () => {
       window.removeEventListener('focus', onFocus, true)
       window.removeEventListener('blur', onBlur, true)
       if (t) window.clearInterval(t)
     }
-  }, [p.content])
+  }, [p.content, aiReady])
 
   const computeHash = (s: string) => {
     try {
@@ -204,7 +208,7 @@ const CaptureForm: React.FC<Props> = (p) => {
         value={p.content} 
         onChange={e => p.setContent(e.target.value)} 
         onBlur={() => { if (aiConfigRef.current?.on_blur) triggerAISuggestions() }}
-        rows={10} 
+        rows={8} 
         placeholder="Content (supports **bold**, _italic_, `code`, # headers)"
       />
       <div className={`context-input-container`}>
