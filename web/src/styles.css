@@ -48,6 +48,68 @@ body {
   line-height: 1.6;
 }
 body::-webkit-scrollbar { display: none; }
+
+/* Public Toggle Styles */
+.public-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 90px;
+  justify-content: center;
+}
+
+.public-toggle:hover {
+  background: var(--form-bg);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.public-toggle.public {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.public-toggle.private {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.public-toggle svg {
+  flex-shrink: 0;
+}
+
+.toggle-label {
+  font-weight: 600;
+}
+
+/* Tags and Public Toggle Container */
+.tags-public-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.tags-public-container .entity-chips {
+  flex: 1;
+}
+
+.tags-sources-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
 body { -ms-overflow-style: none; scrollbar-width: none; }
 .container {  
   margin: 0 auto; 

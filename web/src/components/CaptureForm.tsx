@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import EntityChips from './EntityChips'
 import SuggestionDropdown from './SuggestionDropdown'
+import PublicToggle from './PublicToggle'
 
 type AISuggestion = { value: string; confidence?: number }
 
@@ -27,12 +28,38 @@ const CaptureForm: React.FC<Props> = (p) => {
   const [generatingSources, setGeneratingSources] = useState(false)
   const [dev, setDev] = useState(false)
   const [aiReady, setAiReady] = useState(false)
+  const [isPublic, setIsPublic] = useState(false)
   const aiConfigRef = useRef<{ on_blur: boolean; interval_ms: number; dev_regen: boolean } | null>(null)
   const lastContentHash = useRef<string>('')
 
   useEffect(() => {
     loadPersistentValues()
   }, [])
+
+  // Initialize public toggle based on existing tags
+  useEffect(() => {
+    const tagList = p.tags.split(',').map(t => t.trim()).filter(t => t)
+    setIsPublic(tagList.includes('public'))
+  }, [p.tags])
+
+  // Handle public toggle changes
+  const handlePublicToggle = (newIsPublic: boolean) => {
+    setIsPublic(newIsPublic)
+    
+    const tagList = p.tags.split(',').map(t => t.trim()).filter(t => t)
+    
+    if (newIsPublic) {
+      // Add public tag if not already present
+      if (!tagList.includes('public')) {
+        const newTags = [...tagList, 'public'].join(', ')
+        p.setTags(newTags)
+      }
+    } else {
+      // Remove public tag if present
+      const filteredTags = tagList.filter(t => t !== 'public')
+      p.setTags(filteredTags.join(', '))
+    }
+  }
 
   const loadPersistentValues = async () => {
     try {
@@ -242,18 +269,24 @@ const CaptureForm: React.FC<Props> = (p) => {
           onAcceptAISuggestion={(value, conf) => { onAcceptAI('source', value, conf) }}
           onDeclineAISuggestion={(value, conf) => { onDeclineAI('source', value, conf) }}
         />
-        <EntityChips
-          value={p.tags}
-          onChange={(v) => { p.setTags(v) }}
-          placeholder="Tags"
-          label=""
-          fieldType="tag"
-          aiSuggestions={aiTagSuggestions}
-          generating={generatingTags}
-          devRegenerate={dev ? (() => triggerAISuggestions()) : null}
-          onAcceptAISuggestion={(value, conf) => { onAcceptAI('tag', value, conf) }}
-          onDeclineAISuggestion={(value, conf) => { onDeclineAI('tag', value, conf) }}
-        />
+        <div className="tags-public-container">
+          <EntityChips
+            value={p.tags}
+            onChange={(v) => { p.setTags(v) }}
+            placeholder="Tags"
+            label=""
+            fieldType="tag"
+            aiSuggestions={aiTagSuggestions}
+            generating={generatingTags}
+            devRegenerate={dev ? (() => triggerAISuggestions()) : null}
+            onAcceptAISuggestion={(value, conf) => { onAcceptAI('tag', value, conf) }}
+            onDeclineAISuggestion={(value, conf) => { onDeclineAI('tag', value, conf) }}
+          />
+          <PublicToggle
+            isPublic={isPublic}
+            onToggle={handlePublicToggle}
+          />
+        </div>
       </div>
     </div>
   )
