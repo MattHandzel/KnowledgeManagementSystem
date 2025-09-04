@@ -1,222 +1,91 @@
 {
-  description = "Knowledge Management System - Desktop Capture Application";
+  description = "Knowledge Management System";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-  }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
-
-      python = pkgs.python312;
-      pythonPackages = python.pkgs;
-
-      pythonEnv = python.withPackages (ps:
-        with ps; [
-          fastapi
-          hypercorn
-          pydantic
-          python-multipart
-          pyyaml
-          pytest
-          pytest-mock
-          numpy
-          sounddevice
-          websockets
-        ]);
-
-      webBuild = pkgs.buildNpmPackage {
-        pname = "kms-web-build";
-        version = "1.0.1";
-
-        src = ./web;
-
-        npmDepsHash = "sha256-jVm5fiVhzpdQ4PgIMPDUutkqFFNX7GLL/xTCId5bfQM=";
-
-        buildPhase = ''
-          echo "=== Starting React frontend build ==="
-          rm -rf dist
-          npm run build --verbose
-          echo "=== Frontend build completed ==="
-        '';
-
-        installPhase = ''
-          mkdir -p $out
-          cp -r dist/* $out/
-        '';
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true; # Required for some packages
       };
 
-      electronDeps = pkgs.buildNpmPackage {
-        pname = "kms-electron-deps";
-        version = "1.0.1";
+      # 1. Python Backend Dependencies
+      python-env = pkgs.python311.withPackages (ps: with ps; [
+        fastapi
+        hypercorn
+        pydantic
+        python-multipart
+        pyyaml
+        sounddevice
+        numpy
+        websockets
+      ]);
 
-        src = ./electron;
+      # 2. Frontend and Electron Dependencies
+      # Using nodejs-18_x as it's a stable LTS version.
+      nodejs = pkgs.nodejs-18_x;
 
-        npmDepsHash = "sha256-DPdeOcPiklVZ36xPcEdMx3yAMJdOV06A91PejTYo5D0=";
-
-        dontBuild = true;
-
-        npmFlags = ["--ignore-scripts"];
-
-        installPhase = ''
-          mkdir -p $out
-          cp -r node_modules $out/
-        '';
-      };
-
-      kms-capture = pkgs.stdenv.mkDerivation {
-        pname = "kms-capture";
-        version = "1.0.1";
-
-        src = ./.;
-
-        nativeBuildInputs = with pkgs; [
-          nodejs_20
-          nodePackages.npm
-          makeWrapper
-        ];
-
-        buildInputs = with pkgs; [
-          electron
-          pythonEnv
-        ];
-
-        buildPhase = ''
-          echo "=== Starting kms-capture package build ==="
-
-          echo "Copying pre-built Electron dependencies..."
-          cp -r ${electronDeps}/node_modules electron/
-
-          echo "=== Package build phase completed ==="
-        '';
-
-        installPhase = ''
-          echo "=== Starting kms-capture installation ==="
-          mkdir -p $out/bin
-          mkdir -p $out/lib/kms-capture
-
-          echo "Copying Python backend server files..."
-          cp -r server $out/lib/kms-capture/
-
-          echo "Copying Python modules..."
-          cp *.py $out/lib/kms-capture/
-
-          echo "Copying built React frontend assets..."
-          mkdir -p $out/lib/kms-capture/web/dist
-          cp -r ${webBuild}/* $out/lib/kms-capture/web/dist/
-
-          echo "Copying Electron application files..."
-          cp -r electron $out/lib/kms-capture/
-
-          echo "Copying configuration files..."
-          cp config-prod.yaml $out/lib/kms-capture/
-          cp config-dev.yaml $out/lib/kms-capture/
-
-          echo "Creating unified wrapper script..."
-          # Create wrapper script
-          cat > $out/bin/kms-capture << 'EOF'
-          #!/bin/bash
-          set -e
-
-          export KMS_ROOT="$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kms-capture"
-          export PYTHONPATH="$KMS_ROOT:$KMS_ROOT/server:$PYTHONPATH"
-
-          # Set up writable data directory for production
-          export KMS_DATA_DIR="''${KMS_DATA_DIR:-$HOME/.local/share/kms-capture}"
-          mkdir -p "$KMS_DATA_DIR"
-
-          cd "$KMS_ROOT"
-
-          # Start backend server in background
-          python server/app.py --config config-prod.yaml &
-          SERVER_PID=$!
-
-          # Function to cleanup processes
-          cleanup() {
-            echo "Cleaning up processes..."
-            kill $SERVER_PID 2>/dev/null || true
-            exit 0
-          }
-
-          # Set up signal handlers
-          trap cleanup SIGINT SIGTERM EXIT
-
-          # Start Electron app
-          cd electron
-          electron . --no-sandbox
-
-          # Cleanup will be called by trap
-          EOF
-
-          echo "Making wrapper script executable and setting up PATH..."
-          # Make the wrapper script executable and wrap it with proper paths
-          chmod +x $out/bin/kms-capture
-          wrapProgram $out/bin/kms-capture \
-            --prefix PATH : ${pkgs.lib.makeBinPath [pythonEnv pkgs.electron pkgs.nodejs_20]}
-
-
-          # Create desktop entry
-          mkdir -p $out/share/applications
-          cat > $out/share/applications/kms-capture.desktop << EOF
-          [Desktop Entry]
-          Name=Knowledge Management System
-          Comment=Desktop capture application for knowledge management
-          Exec=$out/bin/kms-capture
-          Icon=kms-capture
-          Terminal=false
-          Type=Application
-          Categories=Office;Utility;
-          EOF
-
-          echo "=== kms-capture installation completed successfully ==="
-        '';
-
-        meta = with pkgs.lib; {
-          description = "Knowledge Management System - Desktop Capture Application";
-          homepage = "https://github.com/MattHandzel/KnowledgeManagementSystem";
-          license = licenses.mit;
-          platforms = platforms.linux;
-          maintainers = [];
-        };
-      };
     in {
-      packages = {
-        default = kms-capture;
-        kms-capture = kms-capture;
-        webBuild = webBuild;
-        electronDeps = electronDeps;
-      };
 
-      apps = {
-        default = {
-          type = "app";
-          program = "${kms-capture}/bin/kms-capture";
-        };
-      };
-
-      devShells.default = pkgs.mkShell {
+      # 3. Development Shell
+      # You can enter this shell by running `nix develop`
+      devShell = pkgs.mkShell {
         buildInputs = with pkgs; [
-          nodejs_20
-          nodePackages.npm
-          pythonEnv
+          # Python environment
+          python-env
+
+          # Node.js environment
+          nodejs
+          # For running scripts concurrently
+          nodePackages.concurrently
+
+          # Electron from nixpkgs
           electron
+
+          # System libraries from shell.nix
+          zlib
+          portaudio
         ];
 
+        # Environment variable to prevent Electron from downloading binaries
         shellHook = ''
-          echo "Knowledge Management System Development Environment"
-          echo "Available commands:"
-          echo "  cd server && python app.py          # Start backend server"
-          echo "  cd web && npm run dev               # Start frontend dev server"
-          echo "  cd electron && npm start            # Start Electron app"
-          echo "  nix build                           # Build the package"
-          echo "  nix run .#                          # Run the desktop app"
+          export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+          # Advise user on next steps
+          echo "Welcome to the development environment!"
+          echo "First, run 'npm install' in the 'web' and 'electron' directories."
+          echo "Then, you can start the application with 'nix run'."
         '';
+      };
+
+      # 4. Runnable App
+      # You can run this with `nix run .#kms-capture`
+      apps.kms-capture = {
+        type = "app";
+        program = let
+          script = pkgs.writeShellScriptBin "run-kms-capture" ''
+            set -e
+            # Ensure node_modules are installed before running
+            if [ ! -d "web/node_modules" ]; then
+                echo "'web/node_modules' not found. Running 'npm install' in 'web' directory..."
+                npm install --prefix web
+            fi
+            if [ ! -d "electron/node_modules" ]; then
+                echo "'electron/node_modules' not found. Running 'npm install' in 'electron' directory..."
+                npm install --prefix electron
+            fi
+
+            echo "Starting application..."
+            ${pkgs.nodePackages.concurrently}/bin/concurrently \
+              "npm run dev --prefix ./web" \
+              "${python-env}/bin/python ./server/app.py --config ./config-prod.yaml" \
+              "${pkgs.electron}/bin/electron ./electron"
+          '';
+        in
+          "${script}/bin/run-kms-capture";
       };
     });
 }
