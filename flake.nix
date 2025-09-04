@@ -65,27 +65,52 @@
       # You can run this with `nix run .#kms-capture`
       apps.kms-capture = {
         type = "app";
-        program = let
-          script = pkgs.writeShellScriptBin "run-kms-capture" ''
-            set -e
-            # Ensure node_modules are installed before running
-            if [ ! -d "web/node_modules" ]; then
-                echo "'web/node_modules' not found. Running 'npm install' in 'web' directory..."
-                npm install --prefix web
-            fi
-            if [ ! -d "electron/node_modules" ]; then
-                echo "'electron/node_modules' not found. Running 'npm install' in 'electron' directory..."
-                npm install --prefix electron
-            fi
+        program = "${self.packages.${system}.kms-capture}/bin/kms-capture";
+      };
 
-            echo "Starting application..."
-            ${pkgs.nodePackages.concurrently}/bin/concurrently \
-              "npm run dev --prefix ./web" \
-              "${python-env}/bin/python ./server/app.py --config ./config-prod.yaml" \
-              "${pkgs.electron}/bin/electron ./electron"
-          '';
-        in
-          "${script}/bin/run-kms-capture";
+      # 5. Buildable Package
+      # You can build this with `nix build .#kms-capture`
+      packages.kms-capture = pkgs.stdenv.mkDerivation rec {
+        pname = "kms-capture";
+        version = "0.1.0";
+
+        src = self;
+
+        nativeBuildInputs = with pkgs; [
+          makeWrapper
+          nodejs
+          nodePackages.npm
+        ];
+
+        buildInputs = with pkgs; [
+          python-env
+          electron
+          nodePackages.concurrently
+        ];
+
+        # We don't have a standard build phase, so we skip it
+        dontBuild = true;
+
+        installPhase = ''
+          # Create the bin directory
+          mkdir -p $out/bin
+
+          # Copy the entire source code to the output path
+          cp -r ${src}/* $out/
+
+          # Install npm dependencies
+          npm install --prefix $out/web
+          npm install --prefix $out/electron
+
+          # Create a wrapper script to run the application
+          makeWrapper ${pkgs.nodePackages.concurrently}/bin/concurrently $out/bin/kms-capture --add-flags \
+            "\"npm run dev --prefix $out/web\"" \
+            "\"${python-env}/bin/python $out/server/app.py --config $out/config-dev.yaml\"" \
+            "\"${pkgs.electron}/bin/electron $out/electron\""
+        '';
+
+        # Environment variable for Electron
+        ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
       };
     });
 }
