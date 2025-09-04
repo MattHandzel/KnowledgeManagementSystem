@@ -26,8 +26,8 @@
       ]);
 
       # 2. Frontend and Electron Dependencies
-      # Using nodejs-18_x as it's a stable LTS version.
-      nodejs = pkgs.nodejs-18_x;
+      # Using nodejs-20_x as it's a stable LTS version.
+      nodejs = pkgs.nodejs_22;
 
     in {
 
@@ -70,47 +70,69 @@
 
       # 5. Buildable Package
       # You can build this with `nix build .#kms-capture`
-      packages.kms-capture = pkgs.stdenv.mkDerivation rec {
-        pname = "kms-capture";
-        version = "0.1.0";
+      packages.kms-capture = let
+        # Helper function to build node modules
+        buildNodeModules = { pname, src, npmDepsHash }: pkgs.buildNpmPackage {
+          inherit pname src npmDepsHash;
+          version = "0.1.0";
+          dontNpmBuild = true;
+          
+          # Prevents electron from downloading binaries during build
+          env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
+        };
 
-        src = self;
+        # Build node_modules for web and electron separately
+        webModules = buildNodeModules {
+          pname = "kms-web";
+          src = ./web;
+          npmDepsHash = "sha256-nGYsAkFt8njX9FalvcY/8CQAXLIGt6rxhUxxULPKjiE=";
+        };
 
-        nativeBuildInputs = with pkgs; [
-          makeWrapper
-          nodejs
-          nodePackages.npm
-        ];
+        electronModules = buildNodeModules {
+          pname = "kms-electron";
+          src = ./electron;
+          npmDepsHash = "sha256-DPdeOcPiklVZ36xPcEdMx3yAMJdOV06A91PejTYo5D0=";
+        };
+      in
+        pkgs.stdenv.mkDerivation rec {
+          pname = "kms-capture";
+          version = "0.1.0";
 
-        buildInputs = with pkgs; [
-          python-env
-          electron
-          nodePackages.concurrently
-        ];
+          src = self;
 
-        # We don't have a standard build phase, so we skip it
-        dontBuild = true;
+          nativeBuildInputs = with pkgs; [
+            makeWrapper
+          ];
 
-        installPhase = ''
-          # Create the bin directory
-          mkdir -p $out/bin
+          # We don't have a standard build phase, so we skip it
+          dontBuild = true;
 
-          # Copy the entire source code to the output path
-          cp -r ${src}/* $out/
+          installPhase = ''
+            mkdir -p $out/bin
+            cp -r ${src}/* $out/
 
-          # Install npm dependencies
-          npm install --prefix $out/web
-          npm install --prefix $out/electron
+            # Make the destination writable
+            chmod -R u+w $out
 
-          # Create a wrapper script to run the application
-          makeWrapper ${pkgs.nodePackages.concurrently}/bin/concurrently $out/bin/kms-capture --add-flags \
-            "\"npm run dev --prefix $out/web\"" \
-            "\"${python-env}/bin/python $out/server/app.py --config $out/config-dev.yaml\"" \
-            "\"${pkgs.electron}/bin/electron $out/electron\""
-        '';
+            # Link the pre-built node_modules
+            ln -s ${webModules}/lib/node_modules $out/web/node_modules
+            ln -s ${electronModules}/lib/node_modules $out/electron/node_modules
 
-        # Environment variable for Electron
-        ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
-      };
+            # Create a helper script to run the application
+            cat > $out/bin/run-kms <<'EOF'
+            #!/bin/sh
+            # Change to the package's directory before running
+            cd $out
+            ${pkgs.nodePackages.concurrently}/bin/concurrently \
+              "npm run dev --prefix ./web" \
+              "${python-env}/bin/python ./server/app.py --config ./config-prod.yaml" \
+              "${pkgs.electron}/bin/electron ./electron"
+            EOF
+            chmod +x $out/bin/run-kms
+
+            # Wrap the helper script
+            makeWrapper $out/bin/run-kms $out/bin/kms-capture
+          '';
+        };
     });
 }
