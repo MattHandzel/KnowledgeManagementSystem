@@ -248,11 +248,27 @@ def api_screenshot():
         media_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = media_dir / f"{timestamp}_screenshot.png"
 
-        result = subprocess.run(
-            ["grim", str(screenshot_path)], capture_output=True, timeout=10
-        )
+        # grimblast --notify  --freeze save area - > {screenshot path}
+        import os
 
-        if result.returncode == 0:
+        result = os.system(
+            f"grimblast --notify --freeze save area - > {screenshot_path}"
+        )
+        # result = subprocess.run(
+        #     [
+        #         "grimblast",
+        #         "--notify",
+        #         "--freeze",
+        #         "save",
+        #         "-",
+        #         ">",
+        #         str(screenshot_path),
+        #     ],
+        #     capture_output=True,
+        #     timeout=50,
+        # )
+
+        if result == 0:
             return {"path": str(screenshot_path), "success": True}
         return {"success": False, "error": "Screenshot failed"}
     except Exception as e:

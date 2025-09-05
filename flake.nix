@@ -124,9 +124,9 @@
             # Change to the package's directory before running
             cd $out
             ${pkgs.nodePackages.concurrently}/bin/concurrently \
-              "npm run dev --prefix ./web" \
-              "${python-env}/bin/python ./server/app.py --config ./config-prod.yaml" \
-              "${pkgs.electron}/bin/electron ./electron"
+              "npm run dev --prefix ~/Projects/KnowledgeManagementSystem/web" \
+              "${python-env}/bin/python ~/Projects/KnowledgeManagementSystem/server/app.py --config ./config-prod.yaml" \
+              "${pkgs.electron}/bin/electron ~/Projects/KnowledgeManagementSystem/electron"
             EOF
             chmod +x $out/bin/run-kms
 

@@ -167,7 +167,9 @@ class SafeMarkdownWriter:
                 media_path = media_file.get("path", "")
 
                 if media_type == "screenshot":
-                    content_sections.append(f"## Screenshot\n{media_path}\n")
+                    content_sections.append(
+                        f"## Screenshot\n![Screenshot]({media_path})\n"
+                    )
                 elif media_type == "audio":
                     relative_path = self.get_relative_media_path(media_path)
                     content_sections.append(

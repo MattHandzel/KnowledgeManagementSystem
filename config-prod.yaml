@@ -33,7 +33,7 @@ ai:
   mode: "local"
   provider: "ollama"
   ollama:
-    host: "http://127.0.0.1"
+    host: "http://76.191.29.237"
     port: 11434
     model: "llama3.2:3b"
     temperature: 0
