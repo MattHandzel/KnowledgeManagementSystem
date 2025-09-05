@@ -98,7 +98,7 @@
           pname = "kms-capture";
           version = "0.1.0";
 
-          src = self;
+          src = ./.;
 
           nativeBuildInputs = with pkgs; [
             makeWrapper
