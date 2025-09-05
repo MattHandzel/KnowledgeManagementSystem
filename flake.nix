@@ -98,7 +98,11 @@
           pname = "kms-capture";
           version = "0.1.0";
 
-          src = ./.;
+          src = builtins.filterSource (path: type: let
+            baseName = baseNameOf (toString path);
+          in
+            ! (baseName == "result" || baseName == "result-2" || baseName == ".git" || (baseName == "result" && dirOf path == ./server)) 
+          ) ./.;
 
           nativeBuildInputs = with pkgs; [
             makeWrapper
@@ -121,12 +125,16 @@
             # Create a helper script to run the application
             cat > $out/bin/run-kms <<'EOF'
             #!/bin/sh
+            # Get the script's directory to find the package root
+            SCRIPT_DIR=$(dirname "$0")
+            PACKAGE_ROOT="$SCRIPT_DIR/.."
+
             # Change to the package's directory before running
-            cd $out
+            cd "$PACKAGE_ROOT"
             ${pkgs.nodePackages.concurrently}/bin/concurrently \
-              "npm run dev --prefix ~/Projects/KnowledgeManagementSystem/web" \
-              "${python-env}/bin/python ~/Projects/KnowledgeManagementSystem/server/app.py --config ./config-prod.yaml" \
-              "${pkgs.electron}/bin/electron ~/Projects/KnowledgeManagementSystem/electron"
+              "npm run dev --prefix \"$PACKAGE_ROOT/web\"" \
+              "${python-env}/bin/python \"$PACKAGE_ROOT/server/app.py\" --config \"$PACKAGE_ROOT/config-prod.yaml\"" \
+              "${pkgs.electron}/bin/electron \"$PACKAGE_ROOT/electron\""
             EOF
             chmod +x $out/bin/run-kms
 
