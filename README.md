@@ -1,7 +1,7 @@
 Knowledge Management System
 
 React Web App (new)
-A React web app with a Python FastAPI backend that uses SafeMarkdownWriter to produce markdown files in your configured vault.
+A React web app with a Python FastAPI backend that produce markdown files in your configured vault.
 
 What’s included
 
