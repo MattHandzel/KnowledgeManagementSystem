@@ -316,6 +316,8 @@ async def api_capture(
     context: str = Form(""),
     tags: str = Form(""),
     sources: str = Form(""),
+    alias: str = Form(None),
+    capture_id: str = Form(None),
     modalities: str = Form(""),
     clipboard: str = Form(""),
     screenshot_path: str = Form(""),
@@ -360,6 +362,7 @@ async def api_capture(
         files_meta.append({"path": screenshot_path, "type": screenshot_type})
     location_data = get_device_location()
 
+    # Initialize capture data
     capture = {
         "timestamp": ts,
         "content": content or "",
@@ -373,6 +376,14 @@ async def api_capture(
         "created_date": cds,
         "last_edited_date": les,
     }
+    
+    # Add optional fields if provided
+    if capture_id is not None and capture_id.strip():
+        capture["capture_id"] = capture_id.strip()
+    
+    # Add aliases if provided
+    if alias is not None and alias.strip():
+        capture["aliases"] = [alias.strip()]
 
     if not _validate_modalities_have_content(capture, mod_list):
         return JSONResponse(
