@@ -126,8 +126,9 @@
             cat > $out/bin/run-kms <<'EOF'
             #!/bin/sh
             # Get the script's directory to find the package root
-            SCRIPT_DIR=$(dirname "$0")
-            PACKAGE_ROOT="$SCRIPT_DIR/.."
+            # SCRIPT_DIR=$(dirname "$0")
+            # PACKAGE_ROOT="$SCRIPT_DIR/.."
+            PACKAGE_ROOT="/home/matth/Projects/KnowledgeManagementSystem" # TODO: Change this to a relative path
 
             # Change to the package's directory before running
             cd "$PACKAGE_ROOT"

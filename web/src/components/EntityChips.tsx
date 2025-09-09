@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent } from 'react'
+import React, { useState, KeyboardEvent, useEffect } from 'react'
 import SuggestionDropdown from './SuggestionDropdown'
 
 type AISuggestion = { value: string; confidence?: number }
@@ -24,6 +24,17 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   
   const entities = value ? value.split(',').map(s => s.trim()).filter(s => s) : []
   
+  // Track which entities were suggested by AI vs added by user
+  const [aiSuggestedEntities, setAiSuggestedEntities] = useState<Set<string>>(new Set())
+  
+  // When AI suggestions change, update our tracked set
+  useEffect(() => {
+    if (aiSuggestions && aiSuggestions.length > 0) {
+      const newAiEntities = new Set(aiSuggestions.map(s => s.value))
+      setAiSuggestedEntities(prev => new Set([...Array.from(prev), ...Array.from(newAiEntities)]))
+    }
+  }, [aiSuggestions])
+  
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       setSuggestionSelected(true)
@@ -47,6 +58,10 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
       addEntity()
     } else if (e.key === 'Backspace' && inputValue === '' && entities.length > 0) {
       removeEntity(entities.length - 1)
+    } else if (e.key === 'Backspace' && e.ctrlKey) {
+      // Clear all entities when Ctrl+Backspace is pressed
+      e.preventDefault()
+      clearAllEntities()
     }
   }
   
@@ -86,6 +101,10 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   const removeEntity = (index: number) => {
     const newEntities = entities.filter((_, i) => i !== index)
     onChange(newEntities.join(', '))
+  }
+  
+  const clearAllEntities = () => {
+    onChange('')
   }
   
   const acceptAISuggestion = (s: AISuggestion) => {
@@ -144,35 +163,45 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
         </div>
         {aiSuggestions && aiSuggestions.length > 0 && (
           <div className="chips-row suggested">
-            {aiSuggestions.map((s, i) => (
-              <span key={`${s.value}-${i}`} className="chip suggested-chip" onDoubleClick={() => editAISuggestion(s)}>
-                <span className="chip-label" onClick={() => acceptAISuggestion(s)}>{s.value}</span>
-                {typeof s.confidence === 'number' && <span className="chip-conf"> {(s.confidence * 100).toFixed(0)}%</span>}
-                <button
-                  type="button"
-                  onClick={() => { if (onDeclineAISuggestion) onDeclineAISuggestion(s.value, s.confidence) }}
-                  className="chip-remove"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+            {aiSuggestions
+              .filter(s => !entities.includes(s.value)) // Filter out suggestions already selected by the user
+              .map((s, i) => (
+                <span key={`${s.value}-${i}`} className="chip suggested-chip ai-suggestion" onDoubleClick={() => editAISuggestion(s)}>
+                  <span className="ai-icon">✨</span>
+                  <span className="chip-label" onClick={() => acceptAISuggestion(s)}>{s.value}</span>
+                  <button
+                    type="button"
+                    onClick={() => { if (onDeclineAISuggestion) onDeclineAISuggestion(s.value, s.confidence) }}
+                    className="chip-remove"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
           </div>
         )}
         {entities.length > 0 && (
           <div className="chips-row">
-            {entities.map((entity, index) => (
-              <span key={index} className="chip">
-                {entity}
-                <button 
-                  type="button" 
-                  onClick={() => removeEntity(index)}
-                  className="chip-remove"
+            {entities.map((entity, index) => {
+              const isAiSuggested = aiSuggestedEntities.has(entity);
+              return (
+                <span 
+                  key={index} 
+                  className={`chip ${isAiSuggested ? 'ai-suggested' : 'user-added'}`}
+                  title={isAiSuggested ? 'AI suggested' : 'User added'}
                 >
-                  ×
-                </button>
-              </span>
-            ))}
+                  {isAiSuggested && <span className="ai-icon">✨</span>}
+                  {entity}
+                  <button 
+                    type="button" 
+                    onClick={() => removeEntity(index)}
+                    className="chip-remove"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
           </div>
         )}
         {devRegenerate && (

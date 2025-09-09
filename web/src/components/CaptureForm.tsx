@@ -199,6 +199,13 @@ const CaptureForm: React.FC<Props> = (p) => {
       fd.append('content_hash', lastContentHash.current)
       await fetch('/api/ai-suggestions/feedback', { method: 'POST', body: fd })
     } catch {}
+    
+    // Remove the accepted suggestion from the suggestions list
+    if (field === 'tag') {
+      setAiTagSuggestions(prev => prev.filter(x => x.value !== value))
+    } else {
+      setAiSourceSuggestions(prev => prev.filter(x => x.value !== value))
+    }
   }
 
   const onDeclineAI = async (field: 'tag' | 'source', value: string, confidence?: number) => {

@@ -6,7 +6,7 @@ import subprocess
 import yaml
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Set
 
 from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +40,10 @@ if not web_dist_path.exists():
     web_dist_path = Path(__file__).resolve().parent / "web" / "dist"
 
 main_db = None
+# Global variables to track AI-suggested tags/sources
+_ai_suggested_tags = set()
+_ai_suggested_sources = set()
+
 _config_path = None
 # audio_manager = AudioRecordingManager()
 _ai_cache = {}
@@ -192,15 +196,15 @@ def _ollama_chat(
 def _build_prompt(field_type: str, content: str, cfg: dict) -> str:
     if field_type == "tag":
         return (
-            "Given the user's note content, extract 3-10 tags as singular nouns or short concepts. "
+            "Given the user's note content, extract 3-10 tags. The tags should be concepts and should be related to what the note is about. It should not be random items in the note. "
             'Do not include duplicates. Output JSON with array \'items\', each item {"value": string, "confidence": number between 0 and 1}. '
-            "Prefer entities, books, places, concepts mentioned. Ensure singular form (e.g., 'quote' not 'quotes'). "
+            'If there are any entities mentioned in the note, suggest tags for them. For example, if the note mentions "Never Eat Alone", suggest "never-eat-alone". The output should always be in kebab-case.'
             "Content:\n" + content
         )
     if field_type == "source":
         return (
-            "From the user's note content, infer sources. If content mentions 'I spoke to James', suggest 'james-fang' if last name present; otherwise kebab-case the person/entity. "
-            "If content is reflection by the user referencing a book like 'Never Eat Alone', include both 'mine' and 'never-eat-alone'. "
+            "From the user's note content, infer sources. If content say 'James told me', suggest 'james'; always kebab-case the person/entity. "
+            "If content is reflection by the user referencing a book like 'Never Eat Alone', include both 'me' (as the user is generating the reflection) and 'never-eat-alone'. "
             'Normalize all sources to kebab-case. Output JSON with array \'items\', each item {"value": string, "confidence": number between 0 and 1}. '
             "Content:\n" + content
         )
@@ -382,6 +386,26 @@ async def api_capture(
     import os
 
     file_exists = os.path.exists(p) if p else False
+    
+    # Store the last used tags and sources in the database for persistence
+    # Distinguish between AI-suggested and user-added tags/sources
+    global _ai_suggested_tags, _ai_suggested_sources
+    
+    # Find which tags were AI-suggested vs user-added
+    user_tags = [tag for tag in tag_list if tag not in _ai_suggested_tags]
+    user_sources = [source for source in src_list if source not in _ai_suggested_sources]
+    
+    # Store both sets separately
+    get_main_db().store_last_used_values(
+        {
+            "tags": user_tags,
+            "sources": user_sources
+        },
+        {
+            "tags": [tag for tag in tag_list if tag in _ai_suggested_tags],  # Only keep AI tags that were actually used
+            "sources": [source for source in src_list if source in _ai_suggested_sources]  # Only keep AI sources that were actually used
+        }
+    )
 
     return JSONResponse({"saved_to": str(p), "verified": file_exists})
 
@@ -543,9 +567,23 @@ def api_ai_suggestions(field_type: str, content: str = "", limit: int = 10):
                 }
             )
         ai_items = boosted
+    original_items = ai_items
     ai_items = sorted(ai_items, key=lambda x: x.get("confidence", 0), reverse=True)[
         :limit
     ]
+    if original_items != ai_items:
+        for fi in ai_items:
+            print(f"Boosted: {fi['value']}, {fi['confidence']}")
+
+    # Track AI suggested items
+    global _ai_suggested_tags, _ai_suggested_sources
+    ai_values = [item['value'] for item in ai_items]
+    
+    if field_type == "tag":
+        _ai_suggested_tags = set(ai_values)
+    elif field_type == "source":
+        _ai_suggested_sources = set(ai_values)
+        
     return {"ai": ai_items, "content_hash": h}
 
 

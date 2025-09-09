@@ -742,6 +742,34 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* AI suggestion styling */
+.chip.ai-suggestion, .chip.ai-suggested {
+  background: rgba(76, 29, 149, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  color: var(--accent-color);
+  position: relative;
+  padding-left: 24px;
+}
+
+.ai-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  font-size: 14px;
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.9;
+}
+
+.chip.ai-suggested {
+  background: rgba(76, 29, 149, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  padding-left: 24px;
+}
 .ai-actions {
   margin-top: 6px;
 }

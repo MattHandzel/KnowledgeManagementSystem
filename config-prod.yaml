@@ -35,7 +35,7 @@ ai:
   ollama:
     host: "http://76.191.29.237"
     port: 11434
-    model: "llama3.2:3b"
+    model: "gemma3:4b-it-qat"
     temperature: 0
   triggers:
     on_blur: true

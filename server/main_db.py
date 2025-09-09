@@ -319,60 +319,176 @@ class MainDatabase:
             count = cursor.fetchone()[0]
             return count > 0
 
+    def _ensure_last_used_table_exists(self):
+        """Ensure the last_used_values table exists."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS last_used_values (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    timestamp TEXT
+                )
+                """
+            )
+
+    def store_last_used_values(self, values: Dict[str, List[str]], ai_suggested: Dict[str, List[str]] = None):
+        """Store last used values for tags and sources for persistence between captures.
+        
+        Args:
+            values: Dictionary containing user-confirmed tags and sources
+            ai_suggested: Dictionary containing AI-suggested tags and sources that haven't been confirmed
+        """
+        self._ensure_last_used_table_exists()
+        timestamp = datetime.now(timezone.utc).isoformat()
+        ai_suggested = ai_suggested or {}
+        
+        with sqlite3.connect(self.db_path) as conn:
+            # Store user-added tags
+            if "tags" in values and values["tags"]:
+                conn.execute(
+                    """INSERT OR REPLACE INTO last_used_values (key, value, timestamp) VALUES (?, ?, ?)""",
+                    ("user_tags", json.dumps(values["tags"]), timestamp)
+                )
+            
+            # Store AI-suggested tags
+            if "tags" in ai_suggested and ai_suggested["tags"]:
+                conn.execute(
+                    """INSERT OR REPLACE INTO last_used_values (key, value, timestamp) VALUES (?, ?, ?)""",
+                    ("ai_tags", json.dumps(ai_suggested["tags"]), timestamp)
+                )
+            
+            # Store user-added sources
+            if "sources" in values and values["sources"]:
+                conn.execute(
+                    """INSERT OR REPLACE INTO last_used_values (key, value, timestamp) VALUES (?, ?, ?)""",
+                    ("user_sources", json.dumps(values["sources"]), timestamp)
+                )
+                
+            # Store AI-suggested sources
+            if "sources" in ai_suggested and ai_suggested["sources"]:
+                conn.execute(
+                    """INSERT OR REPLACE INTO last_used_values (key, value, timestamp) VALUES (?, ?, ?)""",
+                    ("ai_sources", json.dumps(ai_suggested["sources"]), timestamp)
+                )
+
     def get_most_recent_values(self) -> Dict[str, List[str]]:
-        """Get all values from the most recent capture session for each field type."""
+        """Get last used values for tags and sources for persistence between captures.
+        
+        Returns a dictionary with keys:
+        - user_tags: Tags added by the user
+        - ai_tags: Tags suggested by AI
+        - user_sources: Sources added by the user
+        - ai_sources: Sources suggested by AI
+        - tags: Combined tags (for backward compatibility)
+        - sources: Combined sources (for backward compatibility)
+        - context: Context from last capture
+        """
         result: Dict[str, List[str]] = {}
+        self._ensure_last_used_table_exists()
 
         with sqlite3.connect(self.db_path) as conn:
+            # Get user-added tags
             cursor = conn.execute(
-                """
-                SELECT capture_id FROM captures 
-                ORDER BY timestamp DESC 
-                LIMIT 1
-            """
+                """SELECT value FROM last_used_values WHERE key = 'user_tags' LIMIT 1"""
             )
             row = cursor.fetchone()
-            if not row:
-                return result
+            user_tags = []
+            if row and row[0]:
+                try:
+                    user_tags = json.loads(row[0])
+                    result["user_tags"] = user_tags
+                except json.JSONDecodeError:
+                    pass
 
-            most_recent_capture_id = row[0]
-
+            # Get AI-suggested tags
             cursor = conn.execute(
-                """
-                SELECT value FROM tags 
-                WHERE capture_id = ?
-                ORDER BY timestamp DESC
-            """,
-                (most_recent_capture_id,),
+                """SELECT value FROM last_used_values WHERE key = 'ai_tags' LIMIT 1"""
             )
-            tags = [row[0] for row in cursor.fetchall()]
-            if tags:
-                result["tags"] = tags
+            row = cursor.fetchone()
+            ai_tags = []
+            if row and row[0]:
+                try:
+                    ai_tags = json.loads(row[0])
+                    result["ai_tags"] = ai_tags
+                except json.JSONDecodeError:
+                    pass
+                    
+            # Combined tags for backward compatibility
+            if user_tags or ai_tags:
+                result["tags"] = user_tags + [tag for tag in ai_tags if tag not in user_tags]
 
+            # Get user-added sources
             cursor = conn.execute(
-                """
-                SELECT value FROM sources 
-                WHERE capture_id = ?
-                ORDER BY timestamp DESC
-            """,
-                (most_recent_capture_id,),
+                """SELECT value FROM last_used_values WHERE key = 'user_sources' LIMIT 1"""
             )
-            sources = [row[0] for row in cursor.fetchall()]
-            if sources:
-                result["sources"] = sources
+            row = cursor.fetchone()
+            user_sources = []
+            if row and row[0]:
+                try:
+                    user_sources = json.loads(row[0])
+                    result["user_sources"] = user_sources
+                except json.JSONDecodeError:
+                    pass
 
+            # Get AI-suggested sources
             cursor = conn.execute(
-                """
-                SELECT value FROM contexts 
-                WHERE capture_id = ?
-                ORDER BY timestamp DESC
-                LIMIT 1
-            """,
-                (most_recent_capture_id,),
+                """SELECT value FROM last_used_values WHERE key = 'ai_sources' LIMIT 1"""
+            )
+            row = cursor.fetchone()
+            ai_sources = []
+            if row and row[0]:
+                try:
+                    ai_sources = json.loads(row[0])
+                    result["ai_sources"] = ai_sources
+                except json.JSONDecodeError:
+                    pass
+                    
+            # Combined sources for backward compatibility
+            if user_sources or ai_sources:
+                result["sources"] = user_sources + [source for source in ai_sources if source not in user_sources]
+                
+            # Check for old format tags/sources for migration
+            if "tags" not in result:
+                cursor = conn.execute(
+                    """SELECT value FROM last_used_values WHERE key = 'tags' LIMIT 1"""
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    try:
+                        tags = json.loads(row[0])
+                        result["tags"] = tags
+                        result["user_tags"] = tags
+                    except json.JSONDecodeError:
+                        pass
+                        
+            if "sources" not in result:
+                cursor = conn.execute(
+                    """SELECT value FROM last_used_values WHERE key = 'sources' LIMIT 1"""
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    try:
+                        sources = json.loads(row[0])
+                        result["sources"] = sources
+                        result["user_sources"] = sources
+                    except json.JSONDecodeError:
+                        pass
+
+            # For backwards compatibility, get context from last capture
+            cursor = conn.execute(
+                """SELECT capture_id FROM captures ORDER BY timestamp DESC LIMIT 1"""
             )
             row = cursor.fetchone()
             if row:
-                result["context"] = [row[0]]
+                most_recent_capture_id = row[0]
+                cursor = conn.execute(
+                    """SELECT value FROM contexts WHERE capture_id = ? ORDER BY timestamp DESC LIMIT 1""",
+                    (most_recent_capture_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    result["context"] = [row[0]]
 
         return result
 
