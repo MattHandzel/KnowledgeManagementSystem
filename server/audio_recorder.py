@@ -115,7 +115,8 @@ class AudioRecorder(ABC):
         for i in range(0, len(audio_chunk), chunk_size):
             chunk = audio_chunk[i : i + chunk_size]
             amplitude = np.sqrt(np.mean(chunk**2)) * 100
-            waveform.append(min(100, max(0, amplitude)))
+            # Convert numpy float to Python float for JSON serialization
+            waveform.append(float(min(100, max(0, amplitude))))
 
         while len(waveform) < 50:
             waveform.append(0)
@@ -182,6 +183,7 @@ class AudioRecordingManager:
     def __init__(self):
         self.recorders: Dict[str, AudioRecorder] = {}
         self.websocket_connections: Dict[str, set] = {}
+        self.loop = None  # Will be set when first WebSocket connects
 
     def create_recorder(self, recorder_type: str, recorder_id: str) -> bool:
         if recorder_id in self.recorders:
@@ -234,13 +236,19 @@ class AudioRecordingManager:
         if recorder_id not in self.websocket_connections:
             self.websocket_connections[recorder_id] = set()
         self.websocket_connections[recorder_id].add(websocket)
+        # Store the event loop from the async context
+        if self.loop is None:
+            try:
+                self.loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
 
     def remove_websocket_connection(self, recorder_id: str, websocket):
         if recorder_id in self.websocket_connections:
             self.websocket_connections[recorder_id].discard(websocket)
 
     def _broadcast_waveform(self, recorder_id: str, waveform_data: list):
-        if recorder_id not in self.websocket_connections:
+        if recorder_id not in self.websocket_connections or not self.loop:
             return
 
         message = json.dumps(
@@ -250,8 +258,10 @@ class AudioRecordingManager:
         disconnected = set()
         for websocket in self.websocket_connections[recorder_id]:
             try:
-                asyncio.create_task(websocket.send(message))
-            except Exception:
+                # Schedule the coroutine to run in the event loop
+                asyncio.run_coroutine_threadsafe(websocket.send_text(message), self.loop)
+            except Exception as e:
+                print(f"Failed to send WebSocket message: {e}")
                 disconnected.add(websocket)
 
         for websocket in disconnected:

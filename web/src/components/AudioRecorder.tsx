@@ -36,20 +36,40 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
       })
       
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to start recording')
+        let errorMessage = 'Failed to start recording'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          // Response is not JSON, try to get text
+          try {
+            errorMessage = await response.text()
+          } catch (textError) {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`
+          }
+        }
+        throw new Error(errorMessage)
       }
       
       setIsRecording(true)
       setAudioData([])
       
+      // WebSocket URL configuration
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      // Use relative WebSocket URL - Vite will proxy it in development
       const wsUrl = `${wsProtocol}//${window.location.host}/ws/audio-waveform/${recorderId.current}`
+      
+      console.log('Connecting to WebSocket:', wsUrl)
       websocketRef.current = new WebSocket(wsUrl)
+      
+      websocketRef.current.onopen = () => {
+        console.log('WebSocket connected successfully')
+      }
       
       websocketRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          console.log('WebSocket message received:', data)
           if (data.type === 'waveform' && data.recorder_id === recorderId.current) {
             setAudioData(prev => [...prev.slice(-100), ...data.data].slice(-100))
           }
@@ -61,6 +81,10 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
       websocketRef.current.onerror = (error) => {
         console.error('WebSocket error:', error)
         setError('WebSocket connection failed')
+      }
+      
+      websocketRef.current.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason)
       }
       
     } catch (error) {
@@ -86,8 +110,19 @@ const AudioRecorder: React.FC<Props> = ({ onAudioReady, systemAudio = false }) =
       })
       
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to stop recording')
+        let errorMessage = 'Failed to stop recording'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          // Response is not JSON, try to get text
+          try {
+            errorMessage = await response.text()
+          } catch (textError) {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`
+          }
+        }
+        throw new Error(errorMessage)
       }
       
       const result = await response.json()

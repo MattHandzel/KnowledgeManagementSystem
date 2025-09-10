@@ -54,6 +54,7 @@
         # Environment variable to prevent Electron from downloading binaries
         shellHook = ''
           export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+          export LD_LIBRARY_PATH=${pkgs.portaudio}/lib:$LD_LIBRARY_PATH
           # Advise user on next steps
           echo "Welcome to the development environment!"
           echo "First, run 'npm install' in the 'web' and 'electron' directories."
@@ -139,8 +140,9 @@
             EOF
             chmod +x $out/bin/run-kms
 
-            # Wrap the helper script
-            makeWrapper $out/bin/run-kms $out/bin/kms-capture
+            # Wrap the helper script with necessary environment variables
+            makeWrapper $out/bin/run-kms $out/bin/kms-capture \
+              --prefix LD_LIBRARY_PATH : ${pkgs.portaudio}/lib
           '';
         };
     });

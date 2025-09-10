@@ -8,7 +8,7 @@ type Suggestion = {
 }
 
 type Props = {
-  fieldType: 'tag' | 'source' | 'context'
+  fieldType: 'tag' | 'source' | 'context' | 'alias'
   query: string
   onSelect: (value: string) => void
   visible: boolean

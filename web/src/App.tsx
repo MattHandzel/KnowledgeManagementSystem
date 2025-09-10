@@ -20,6 +20,8 @@ const App: React.FC = () => {
   const [context, setContext] = useState('')
   const [tags, setTags] = useState('')
   const [sources, setSources] = useState('')
+  const [alias, setAlias] = useState('')
+  const [noteId, setNoteId] = useState('')
   const [modalities, setModalities] = useState<string[]>(['text'])
   const [help, setHelp] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -30,6 +32,9 @@ const App: React.FC = () => {
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
   useEffect(() => {
+    // Generate a note ID when the app loads
+    generateNoteId()
+    
     fetch('/api/config').then(r => r.json()).then(config => {
       setConfig(config)
       if (config.theme) {
@@ -82,8 +87,18 @@ const App: React.FC = () => {
     setContext('')
     setTags('')
     setSources('')
+    setAlias('')
+    // Generate a new note ID when resetting the form
+    generateNoteId()
     setModalities(['text'])
     setMediaFiles([])
+  }
+  
+  // Generate a unique note ID based on ISO timestamp
+  const generateNoteId = () => {
+    const now = new Date()
+    const id = now.toISOString()
+    setNoteId(id)
   }
   const onFiles = (files: FileList | null) => {
     if (!files) return
@@ -124,6 +139,8 @@ const App: React.FC = () => {
       fd.append('context', context)
       fd.append('tags', tags)
       fd.append('sources', sources)
+      fd.append('alias', alias)
+      fd.append('capture_id', noteId)
       fd.append('modalities', modalities.join(','))
       
       if (modalities.includes('clipboard')) {
@@ -209,6 +226,8 @@ const App: React.FC = () => {
         context={context} setContext={setContext}
         tags={tags} setTags={setTags}
         sources={sources} setSources={setSources}
+        alias={alias} setAlias={setAlias}
+        noteId={noteId}
         onFiles={onFiles}
         saving={saving}
         onSave={handleSave}

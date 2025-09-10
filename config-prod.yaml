@@ -41,7 +41,7 @@ ai:
     on_blur: true
     interval_ms: 5000
   normalization:
-    tags_singular: true
+    tags_kebab: true 
     sources_kebab: true
   behavior:
     suggest_existing_only: false

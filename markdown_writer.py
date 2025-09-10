@@ -98,9 +98,10 @@ class SafeMarkdownWriter:
         else:
             iso_ts = ts_input.isoformat()
             timestamp_for_id = ts_input
-        capture_id = capture_data.get(
-            "capture_id", self.generate_capture_id(timestamp_for_id)
-        )
+        
+        # Use the provided capture_id or generate a new one
+        provided_id = capture_data.get("capture_id")
+        capture_id = self.generate_capture_id(timestamp_for_id, provided_id)
 
         context_data = capture_data.get("context", {})
         if isinstance(context_data, str):
@@ -128,10 +129,19 @@ class SafeMarkdownWriter:
         else:
             tag_entities = []
 
+        # Handle custom aliases from the capture data
+        custom_aliases = capture_data.get("aliases", [])
+        all_aliases = [capture_id]  # Always include the capture_id as an alias
+        
+        # Add any custom aliases if provided
+        for alias in custom_aliases:
+            if alias and alias not in all_aliases:
+                all_aliases.append(alias)
+                
         frontmatter = {
             "timestamp": iso_ts,
             "id": capture_id,
-            "aliases": [capture_id],
+            "aliases": all_aliases,
             "capture_id": capture_id,
             "modalities": capture_data.get("modalities", ["text"]),
             "context": context_entities,
@@ -186,8 +196,10 @@ class SafeMarkdownWriter:
         formatted_content = f"---\n{yaml_content}---\n{''.join(content_sections)}"
         return formatted_content
 
-    def generate_capture_id(self, timestamp: datetime) -> str:
-        """Generate a unique capture ID based on timestamp."""
+    def generate_capture_id(self, timestamp: datetime, provided_id: str = None) -> str:
+        """Generate a unique capture ID based on timestamp or use provided ID."""
+        if provided_id:
+            return provided_id
         return timestamp.isoformat()
 
     def get_relative_media_path(self, media_path: str) -> str:

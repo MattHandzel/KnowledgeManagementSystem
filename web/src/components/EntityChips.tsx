@@ -8,7 +8,7 @@ type Props = {
   onChange: (value: string) => void
   placeholder: string
   label: string
-  fieldType: 'tag' | 'source'
+  fieldType: 'tag' | 'source' | 'alias'
   aiSuggestions?: AISuggestion[]
   onAcceptAISuggestion?: (value: string, confidence?: number) => void
   onDeclineAISuggestion?: (value: string, confidence?: number) => void
@@ -113,7 +113,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
       const newEntities = [...entities, s.value]
       onChange(newEntities.join(', '))
     }
-    if (onAcceptAISuggestion) onAcceptAISuggestion(s.value, s.confidence)
+    if (onAcceptAISuggestion) onAcceptAISuggestion(s.value)
   }
 
   const editAISuggestion = (s: AISuggestion) => {

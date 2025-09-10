@@ -10,14 +10,31 @@ from typing import List, Optional, Dict, Any, Set
 
 from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+
+# Import alias suggestions module
+try:
+    from alias_suggestions import generate_aliases
+    ALIAS_SUGGESTIONS_AVAILABLE = True
+except ImportError:
+    print("⚠️ Alias suggestions module not available - using basic fallback")
+    ALIAS_SUGGESTIONS_AVAILABLE = False
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-# from audio_recorder import AudioRecordingManager
 from geolocation import get_device_location
+
+# Try to import audio recorder, but make it optional
+try:
+    from audio_recorder import AudioRecordingManager
+    AUDIO_RECORDING_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"⚠️  Audio recording disabled: {e}")
+    AUDIO_RECORDING_AVAILABLE = False
+    AudioRecordingManager = None
+
 import hashlib
 import json
 import re
@@ -45,7 +62,7 @@ _ai_suggested_tags = set()
 _ai_suggested_sources = set()
 
 _config_path = None
-# audio_manager = AudioRecordingManager()
+audio_manager = AudioRecordingManager() if AUDIO_RECORDING_AVAILABLE else None
 _ai_cache = {}
 
 
@@ -154,9 +171,7 @@ def _ollama_chat(
         parsed_host = host.replace("http://", "").replace("https://", "")
         if ":" in parsed_host:
             parsed_host = parsed_host.split(":")[0]
-        conn = http.client.HTTPConnection(
-            parsed_host, port=port, timeout=30
-        )
+        conn = http.client.HTTPConnection(parsed_host, port=port, timeout=30)
         payload = json.dumps(
             {
                 "model": model,
@@ -208,6 +223,14 @@ def _build_prompt(field_type: str, content: str, cfg: dict) -> str:
             'Normalize all sources to kebab-case. Output JSON with array \'items\', each item {"value": string, "confidence": number between 0 and 1}. '
             "Content:\n" + content
         )
+    if field_type == "alias":
+        return (
+            "Based on the following note content, generate 3-5 meaningful and concise aliases or titles. "
+            "These aliases should capture the main topic or essence of the note. "
+            'Output JSON with array \'items\', each item {"value": string, "confidence": number between 0 and 1}. '
+            "Make sure aliases are clear, descriptive, and under 50 characters. "
+            "Content:\n" + content
+        )
     return ""
 
 
@@ -222,9 +245,7 @@ def _ollama_health(host: str, port: int) -> bool:
         parsed_host = host.replace("http://", "").replace("https://", "")
         if ":" in parsed_host:
             parsed_host = parsed_host.split(":")[0]
-        conn = http.client.HTTPConnection(
-            parsed_host, port=port, timeout=3
-        )
+        conn = http.client.HTTPConnection(parsed_host, port=port, timeout=3)
         conn.request("GET", "/api/version")
         res = conn.getresponse()
         ok = res.status == 200
@@ -316,8 +337,8 @@ async def api_capture(
     context: str = Form(""),
     tags: str = Form(""),
     sources: str = Form(""),
-    alias: str = Form(None),
-    capture_id: str = Form(None),
+    alias: str = Form(""),
+    capture_id: str = Form(""),
     modalities: str = Form(""),
     clipboard: str = Form(""),
     screenshot_path: str = Form(""),
@@ -362,6 +383,14 @@ async def api_capture(
         files_meta.append({"path": screenshot_path, "type": screenshot_type})
     location_data = get_device_location()
 
+    # Use provided capture_id if available, otherwise generate a new one
+    actual_capture_id = capture_id.strip() if capture_id.strip() else None
+    
+    # Handle alias - if provided, add it to the aliases list
+    aliases = []
+    if alias.strip():
+        aliases.append(alias.strip())
+    
     # Initialize capture data
     capture = {
         "timestamp": ts,
@@ -375,15 +404,9 @@ async def api_capture(
         "media_files": files_meta,
         "created_date": cds,
         "last_edited_date": les,
+        "capture_id": actual_capture_id,
+        "aliases": aliases
     }
-    
-    # Add optional fields if provided
-    if capture_id is not None and capture_id.strip():
-        capture["capture_id"] = capture_id.strip()
-    
-    # Add aliases if provided
-    if alias is not None and alias.strip():
-        capture["aliases"] = [alias.strip()]
 
     if not _validate_modalities_have_content(capture, mod_list):
         return JSONResponse(
@@ -397,25 +420,28 @@ async def api_capture(
     import os
 
     file_exists = os.path.exists(p) if p else False
-    
+
     # Store the last used tags and sources in the database for persistence
     # Distinguish between AI-suggested and user-added tags/sources
     global _ai_suggested_tags, _ai_suggested_sources
-    
+
     # Find which tags were AI-suggested vs user-added
     user_tags = [tag for tag in tag_list if tag not in _ai_suggested_tags]
-    user_sources = [source for source in src_list if source not in _ai_suggested_sources]
-    
+    user_sources = [
+        source for source in src_list if source not in _ai_suggested_sources
+    ]
+
     # Store both sets separately
     get_main_db().store_last_used_values(
+        {"tags": user_tags, "sources": user_sources},
         {
-            "tags": user_tags,
-            "sources": user_sources
+            "tags": [
+                tag for tag in tag_list if tag in _ai_suggested_tags
+            ],  # Only keep AI tags that were actually used
+            "sources": [
+                source for source in src_list if source in _ai_suggested_sources
+            ],  # Only keep AI sources that were actually used
         },
-        {
-            "tags": [tag for tag in tag_list if tag in _ai_suggested_tags],  # Only keep AI tags that were actually used
-            "sources": [source for source in src_list if source in _ai_suggested_sources]  # Only keep AI sources that were actually used
-        }
     )
 
     return JSONResponse({"saved_to": str(p), "verified": file_exists})
@@ -476,6 +502,9 @@ def api_recent_values():
 @app.post("/api/audio/start")
 def api_audio_start(recorder_type: str = Form(...), recorder_id: str = Form(...)):
     """Start audio recording."""
+    if not AUDIO_RECORDING_AVAILABLE or not audio_manager:
+        return JSONResponse({"error": "Audio recording is not available"}, status_code=503)
+    
     if not audio_manager.create_recorder(recorder_type, recorder_id):
         if recorder_id in audio_manager.recorders:
             return JSONResponse({"error": "Recorder already exists"}, status_code=400)
@@ -490,6 +519,9 @@ def api_audio_start(recorder_type: str = Form(...), recorder_id: str = Form(...)
 @app.post("/api/audio/stop")
 def api_audio_stop(recorder_id: str = Form(...)):
     """Stop audio recording and save file."""
+    if not AUDIO_RECORDING_AVAILABLE or not audio_manager:
+        return JSONResponse({"error": "Audio recording is not available"}, status_code=503)
+    
     if not audio_manager.stop_recording(recorder_id):
         return JSONResponse({"error": "Failed to stop recording"}, status_code=500)
 
@@ -515,9 +547,54 @@ def api_audio_stop(recorder_id: str = Form(...)):
 
 @app.get("/api/ai-suggestions/{field_type}")
 def api_ai_suggestions(field_type: str, content: str = "", limit: int = 10):
-    print("Getting AI suggestions for {field_type} with content length", len(content))
-    if field_type not in ["tag", "source"]:
+    print(f"Getting AI suggestions for {field_type} with content length {len(content)}")
+    if field_type not in ["tag", "source", "alias"]:
         return JSONResponse({"error": "Invalid field type"}, status_code=400)
+    
+    # Special handling for alias suggestions
+    if field_type == "alias":
+        content_norm = (content or "").strip()
+        if not content_norm:
+            return {"ai": [], "content_hash": None}
+        h = _sha_content(content_norm)
+        
+        # First try to use the Ollama LLM directly
+        cfg = normalize_config(load_config(_config_path))
+        ai_mode = (cfg.get("ai") or {}).get("mode") or "local"
+        ai_cfg = (cfg.get("ai") or {}).get("ollama") or {}
+        
+        # Get Ollama server config
+        host = ai_cfg.get("host") or "http://127.0.0.1"
+        port = int(ai_cfg.get("port") or 11434)
+        model = ai_cfg.get("model") or "llama3.2:3b"
+        temperature = float((cfg.get("ai") or {}).get("ollama", {}).get("temperature", 0.2) or 0.2)
+        
+        # Build specialized prompt for aliases
+        prompt = (
+            "Based on the following note content, generate {limit} meaningful and concise aliases or titles. "
+            "These aliases should capture the main topic or essence of the note. "
+            "Output JSON with array 'items', each item {{\"value\": string, \"confidence\": number between 0 and 1}}. "
+            "Make sure aliases are clear, descriptive, and under 50 characters. "
+            "Content:\n{content}"
+        ).format(limit=limit, content=content_norm[:1000] if len(content_norm) > 1000 else content_norm)
+        
+        try:
+            # Try to use Ollama directly
+            ai_resp = _ollama_chat(host, port, model, temperature, prompt)
+            if ai_resp and "items" in ai_resp and isinstance(ai_resp["items"], list):
+                return {"ai": ai_resp["items"][:limit], "content_hash": h}
+        except Exception as e:
+            print(f"Ollama alias generation error: {e}")
+            
+        # Fall back to the module if available or basic suggestions
+        if ALIAS_SUGGESTIONS_AVAILABLE:
+            suggestions = generate_aliases(content_norm, limit)
+            return {"ai": suggestions, "content_hash": h}
+        else:
+            # Basic fallback if module not available
+            return {"ai": [{"value": f"Note from {datetime.now().strftime('%Y-%m-%d')}", "confidence": 0.5}], "content_hash": h}
+    
+    # For tags and sources, continue with regular LLM-based suggestions
     cfg = normalize_config(load_config(_config_path))
     content_norm = (content or "").strip()
     if not content_norm:
@@ -554,8 +631,8 @@ def api_ai_suggestions(field_type: str, content: str = "", limit: int = 10):
                 c = float(it.get("confidence", 0.5))
                 if field_type == "tag" and (cfg.get("ai") or {}).get(
                     "normalization", {}
-                ).get("tags_singular", True):
-                    v = _singularize(v)
+                ).get("tags_kebab", True):
+                    v = _kebab_case(v)
                 if field_type == "source" and (cfg.get("ai") or {}).get(
                     "normalization", {}
                 ).get("sources_kebab", True):
@@ -588,13 +665,14 @@ def api_ai_suggestions(field_type: str, content: str = "", limit: int = 10):
 
     # Track AI suggested items
     global _ai_suggested_tags, _ai_suggested_sources
-    ai_values = [item['value'] for item in ai_items]
-    
+    ai_values = [item["value"] for item in ai_items]
+
     if field_type == "tag":
         _ai_suggested_tags = set(ai_values)
     elif field_type == "source":
         _ai_suggested_sources = set(ai_values)
-        
+    # For aliases, we don't need to track them globally, as they are specific to each note
+
     return {"ai": ai_items, "content_hash": h}
 
 
@@ -609,6 +687,12 @@ def api_audio_status(recorder_id: str):
 async def websocket_audio_waveform(websocket: WebSocket, recorder_id: str):
     """WebSocket endpoint for real-time waveform data."""
     await websocket.accept()
+    
+    if not AUDIO_RECORDING_AVAILABLE or not audio_manager:
+        await websocket.send_json({"error": "Audio recording is not available"})
+        await websocket.close()
+        return
+    
     audio_manager.add_websocket_connection(recorder_id, websocket)
 
     try:
@@ -616,6 +700,22 @@ async def websocket_audio_waveform(websocket: WebSocket, recorder_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         audio_manager.remove_websocket_connection(recorder_id, websocket)
+
+
+@app.get("/capture/raw_capture/media/{filename}")
+def serve_media_file(filename: str):
+    """Serve media files from the vault's media directory."""
+    cfg = normalize_config(load_config(_config_path))
+    media_path = Path(cfg["vault"]["path"]).expanduser() / cfg["vault"]["media_dir"] / filename
+    
+    if not media_path.exists():
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    
+    if not media_path.is_file():
+        return JSONResponse({"error": "Not a file"}, status_code=400)
+    
+    # Serve the file
+    return FileResponse(media_path)
 
 
 @app.get("/api/ai/health")

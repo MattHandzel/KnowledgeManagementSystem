@@ -14,6 +14,9 @@ type Props = {
   setTags: (v: string) => void
   sources: string
   setSources: (v: string) => void
+  alias: string
+  setAlias: (v: string) => void
+  noteId: string
   onFiles: (f: FileList | null) => void
   saving: boolean
   onSave: () => void
@@ -195,6 +198,7 @@ const CaptureForm: React.FC<Props> = (p) => {
       fd.append('field_type', field)
       fd.append('value', value)
       fd.append('action', 'accepted')
+      // Still send confidence to the server, but don't display it in UI
       if (typeof confidence === 'number') fd.append('confidence', String(confidence))
       fd.append('content_hash', lastContentHash.current)
       await fetch('/api/ai-suggestions/feedback', { method: 'POST', body: fd })
@@ -235,8 +239,52 @@ const CaptureForm: React.FC<Props> = (p) => {
       .replace(/\n/g, '<br>')
   }
 
+  // Function to handle copying the note ID to clipboard
+  const copyNoteIdToClipboard = () => {
+    navigator.clipboard.writeText(p.noteId)
+    // Could add some visual feedback here
+  }
+
+  // Function to generate AI alias suggestions based on content
+  const generateAliasOptions = async () => {
+    if (!p.content || p.content.trim().length < 5) return
+    
+    try {
+      const response = await fetch(`/api/ai-suggestions/alias?content=${encodeURIComponent(p.content)}&limit=5`)
+      const data = await response.json()
+      if (data.ai && data.ai.length > 0) {
+        // Suggest the first alias or allow user to choose from the list
+        const suggestion = data.ai[0].value
+        if (suggestion && window.confirm(`Use suggested alias: "${suggestion}"?`)) {
+          p.setAlias(suggestion)
+        }
+      }
+    } catch (error) {
+      console.error('Error generating alias suggestions:', error)
+    }
+  }
+
   return (
     <div className="form">
+      <div className="note-id-container" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <span style={{ fontSize: '12px', color: '#666' }}>Note ID:</span>
+          <span style={{ fontFamily: 'monospace', padding: '0 5px', fontSize: '14px' }}>{p.noteId}</span>
+        </div>
+        <button 
+          onClick={copyNoteIdToClipboard}
+          style={{
+            background: 'none',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          Copy ID
+        </button>
+      </div>
       <textarea 
         value={p.content} 
         onChange={e => p.setContent(e.target.value)} 
@@ -298,6 +346,29 @@ const CaptureForm: React.FC<Props> = (p) => {
             onToggle={handlePublicToggle}
           />
         </div>
+      </div>
+      <div className="alias-container" style={{ marginTop: '15px', display: 'flex', alignItems: 'center' }}>
+        <input
+          value={p.alias}
+          onChange={(e) => p.setAlias(e.target.value)}
+          placeholder="Add an alias for this note..."
+          style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
+        <button 
+          onClick={generateAliasOptions}
+          style={{
+            marginLeft: '10px',
+            background: '#f0f0f0',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+          title="Generate alias suggestions based on content"
+        >
+          Suggest
+        </button>
       </div>
     </div>
   )
