@@ -31,19 +31,44 @@ const App: React.FC = () => {
   const [mediaFiles, setMediaFiles] = useState<File[]>([])
   const [popup, setPopup] = useState<{type: 'success' | 'error', message: string} | null>(null)
 
+  // Helper function to retry API calls with exponential backoff
+  const fetchWithRetry = async (url: string, options: RequestInit = {}, maxRetries = 5) => {
+    let retries = 0;
+    while (retries < maxRetries) {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (error) {
+        retries += 1;
+        if (retries >= maxRetries) {
+          console.error(`Failed to fetch ${url} after ${maxRetries} attempts:`, error);
+          throw error;
+        }
+        console.log(`Retry ${retries}/${maxRetries} for ${url} - waiting ${Math.pow(2, retries) * 500}ms`);
+        // Exponential backoff: 500ms, 1s, 2s, 4s, 8s
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 500));
+      }
+    }
+  };
+
   useEffect(() => {
     // Generate a note ID when the app loads
     generateNoteId()
     
-    fetch('/api/config').then(r => r.json()).then(config => {
-      setConfig(config)
-      if (config.theme) {
-        const root = document.documentElement
-        if (config.theme.accent_color) root.style.setProperty('--accent-color', config.theme.accent_color)
-        if (config.theme.accent_hover) root.style.setProperty('--accent-hover', config.theme.accent_hover)
-        if (config.theme.accent_shadow) root.style.setProperty('--accent-shadow', config.theme.accent_shadow)
-        
-        if (config.theme.mode === 'dark') {
+    // Use the retry mechanism for config fetch
+    fetchWithRetry('/api/config')
+      .then(config => {
+        setConfig(config)
+        if (config.theme) {
+          const root = document.documentElement
+          if (config.theme.accent_color) root.style.setProperty('--accent-color', config.theme.accent_color)
+          if (config.theme.accent_hover) root.style.setProperty('--accent-hover', config.theme.accent_hover)
+          if (config.theme.accent_shadow) root.style.setProperty('--accent-shadow', config.theme.accent_shadow)
+          
+          if (config.theme.mode === 'dark') {
           root.setAttribute('data-theme', 'dark')
         } else {
           root.removeAttribute('data-theme')
@@ -166,11 +191,21 @@ const App: React.FC = () => {
         }
       })
       const r = await fetch('/api/capture', { method: 'POST', body: fd })
-      const j = await r.json()
+      let j
+      try {
+        j = await r.json()
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError, 'Response:', await r.text())
+        setPopup({ type: 'error', message: 'Save failed: Invalid response from server' })
+        return
+      }
+      
       if (j.verified !== false) {
         setSaveSuccess(true)
         setTimeout(() => setSaveSuccess(false), 2000)
         resetForm()
+      } else if (j.error) {
+        setPopup({ type: 'error', message: j.error })
       } else {
         setPopup({ type: 'error', message: 'Save failed: File verification failed' })
       }
@@ -191,22 +226,19 @@ const App: React.FC = () => {
   }, [popup])
 
   useEffect(() => {
-    let t: number | undefined
-    const check = async () => {
+    const aiHealthCheck = async () => {
       try {
-        const r = await fetch('/api/ai/health', { cache: 'no-store' })
-        if (!r.ok) throw new Error('bad')
-        const j = await r.json()
-        setAiConnected(j.connected ? 'ok' : 'err')
+        // Use the retry mechanism for AI health check
+        const j = await fetchWithRetry('/api/ai/health')
+        setAiConnected(j.status === 'ok' ? 'ok' : 'err')
       } catch {
         setAiConnected('err')
       }
     }
-    check()
-    t = window.setInterval(check, 1000)
+    aiHealthCheck()
+    const t = window.setInterval(aiHealthCheck, 1000)
     return () => { if (t) window.clearInterval(t) }
   }, [])
-
 
   return (
     <div className="container">

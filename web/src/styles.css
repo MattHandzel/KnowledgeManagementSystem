@@ -747,7 +747,7 @@ body { -ms-overflow-style: none; scrollbar-width: none; }
 .chip.ai-suggestion, .chip.ai-suggested {
   background: rgba(76, 29, 149, 0.15);
   border: 1px solid rgba(139, 92, 246, 0.5);
-  color: var(--accent-color);
+  color: #866bf2;
   position: relative;
   padding-left: 24px;
 }

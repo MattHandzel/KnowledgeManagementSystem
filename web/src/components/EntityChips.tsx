@@ -21,6 +21,7 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [inputColor, setInputColor] = useState('')
   const [suggestionSelected, setSuggestionSelected] = useState(false)
+  const [suggestionWasClicked, setSuggestionWasClicked] = useState(false)
   
   const entities = value ? value.split(',').map(s => s.trim()).filter(s => s) : []
   
@@ -131,8 +132,13 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onBlur={() => {
-              setTimeout(() => setShowSuggestions(false), 200)
-              addEntity()
+              setTimeout(() => {
+                if (!suggestionWasClicked) {
+                  addEntity()
+                }
+                setShowSuggestions(false)
+                setSuggestionWasClicked(false) // Reset for next interaction
+              }, 200) // Delay to allow click event to register
             }}
             onFocus={() => {
               setShowSuggestions(true)
@@ -145,14 +151,15 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
             fieldType={fieldType}
             query={inputValue}
             onSelect={(value) => {
+              setSuggestionWasClicked(true)
               const trimmed = value.trim()
               if (trimmed && !entities.includes(trimmed)) {
                 const newEntities = [...entities, trimmed]
                 onChange(newEntities.join(', '))
-                setInputValue('')
-                setShowSuggestions(false)
-                setSuggestionSelected(false)
               }
+              setInputValue('')
+              setShowSuggestions(false)
+              setSuggestionSelected(false)
             }}
             visible={showSuggestions}
             onClose={() => {
@@ -165,17 +172,17 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
           <div className="chips-row suggested">
             {aiSuggestions
               .filter(s => !entities.includes(s.value)) // Filter out suggestions already selected by the user
+              // .filter(s => !s.confidence || s.confidence >= 0.9) // Only show suggestions with confidence >= 0.5
               .map((s, i) => (
-                <span key={`${s.value}-${i}`} className="chip suggested-chip ai-suggestion" onDoubleClick={() => editAISuggestion(s)}>
+                <span 
+                  key={`${s.value}-${i}`} 
+                  className="chip suggested-chip ai-suggestion" 
+                  onClick={() => acceptAISuggestion(s)}
+                  onDoubleClick={() => editAISuggestion(s)}
+                  title={`Accept AI suggestion: "${s.value}"`}
+                >
                   <span className="ai-icon">✨</span>
-                  <span className="chip-label" onClick={() => acceptAISuggestion(s)}>{s.value}</span>
-                  <button
-                    type="button"
-                    onClick={() => { if (onDeclineAISuggestion) onDeclineAISuggestion(s.value, s.confidence) }}
-                    className="chip-remove"
-                  >
-                    ×
-                  </button>
+                  <span className="chip-label">{s.value}</span>
                 </span>
               ))}
           </div>
@@ -188,17 +195,11 @@ const EntityChips: React.FC<Props> = ({ value, onChange, placeholder, label, fie
                 <span 
                   key={index} 
                   className={`chip ${isAiSuggested ? 'ai-suggested' : 'user-added'}`}
-                  title={isAiSuggested ? 'AI suggested' : 'User added'}
+                  title={isAiSuggested ? 'AI suggested' : `User added. Click to remove "${entity}".`}
+                  onClick={() => removeEntity(index)}
                 >
                   {isAiSuggested && <span className="ai-icon">✨</span>}
                   {entity}
-                  <button 
-                    type="button" 
-                    onClick={() => removeEntity(index)}
-                    className="chip-remove"
-                  >
-                    ×
-                  </button>
                 </span>
               );
             })}

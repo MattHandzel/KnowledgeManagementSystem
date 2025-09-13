@@ -126,7 +126,14 @@ class MainDatabase:
         """Store comprehensive capture data in the database."""
         print(f"DEBUG: store_capture_data called with: {capture_data}")
         timestamp = datetime.now(timezone.utc).isoformat()
-        capture_id = capture_data.get("capture_id", timestamp)
+        
+        # Ensure capture_id is never None - use timestamp as fallback
+        capture_id = capture_data.get("capture_id")
+        if not capture_id:  # Handle None, empty string, etc.
+            capture_id = timestamp
+            # Also update the capture data dictionary with the generated ID
+            capture_data["capture_id"] = capture_id
+            
         print(f"DEBUG: Using capture_id: {capture_id}, timestamp: {timestamp}")
 
         with sqlite3.connect(self.db_path) as conn:

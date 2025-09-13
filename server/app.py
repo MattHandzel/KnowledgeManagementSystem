@@ -383,8 +383,8 @@ async def api_capture(
         files_meta.append({"path": screenshot_path, "type": screenshot_type})
     location_data = get_device_location()
 
-    # Use provided capture_id if available, otherwise generate a new one
-    actual_capture_id = capture_id.strip() if capture_id.strip() else None
+    # Use provided capture_id if available, otherwise generate a new one using timestamp
+    actual_capture_id = capture_id.strip() if capture_id.strip() else ts.isoformat()
     
     # Handle alias - if provided, add it to the aliases list
     aliases = []
@@ -421,30 +421,35 @@ async def api_capture(
 
     file_exists = os.path.exists(p) if p else False
 
-    # Store the last used tags and sources in the database for persistence
-    # Distinguish between AI-suggested and user-added tags/sources
-    global _ai_suggested_tags, _ai_suggested_sources
+    try:
+        # Store the last used tags and sources in the database for persistence
+        # Distinguish between AI-suggested and user-added tags/sources
+        global _ai_suggested_tags, _ai_suggested_sources
 
-    # Find which tags were AI-suggested vs user-added
-    user_tags = [tag for tag in tag_list if tag not in _ai_suggested_tags]
-    user_sources = [
-        source for source in src_list if source not in _ai_suggested_sources
-    ]
+        # Find which tags were AI-suggested vs user-added
+        user_tags = [tag for tag in tag_list if tag not in _ai_suggested_tags]
+        user_sources = [
+            source for source in src_list if source not in _ai_suggested_sources
+        ]
 
-    # Store both sets separately
-    get_main_db().store_last_used_values(
-        {"tags": user_tags, "sources": user_sources},
-        {
-            "tags": [
-                tag for tag in tag_list if tag in _ai_suggested_tags
-            ],  # Only keep AI tags that were actually used
-            "sources": [
-                source for source in src_list if source in _ai_suggested_sources
-            ],  # Only keep AI sources that were actually used
-        },
-    )
+        # Store both sets separately
+        get_main_db().store_last_used_values(
+            {"tags": user_tags, "sources": user_sources},
+            {
+                "tags": [
+                    tag for tag in tag_list if tag in _ai_suggested_tags
+                ],  # Only keep AI tags that were actually used
+                "sources": [
+                    source for source in src_list if source in _ai_suggested_sources
+                ],  # Only keep AI sources that were actually used
+            },
+        )
 
-    return JSONResponse({"saved_to": str(p), "verified": file_exists})
+        # Return a properly formatted JSON response
+        return {"saved_to": str(p), "verified": file_exists}
+    except Exception as e:
+        # Return a properly formatted JSON error response
+        return JSONResponse({"error": f"Save failed: {str(e)}"}, status_code=500)
 
 
 @app.get("/api/suggestions/{field_type}")
