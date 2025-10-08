@@ -1,4 +1,7 @@
-Knowledge Management System
+Knowledge Capture System
+
+![demo](https://x.com/handzelmatt/status/1964171812478087213)
+
 
 React Web App (new)
 A React web app with a Python FastAPI backend that produce markdown files in your configured vault.
