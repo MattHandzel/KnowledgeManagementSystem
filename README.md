@@ -1,6 +1,6 @@
 Knowledge Capture System
 
-![demo](https://x.com/handzelmatt/status/1964171812478087213)
+[demo](https://x.com/handzelmatt/status/1964171812478087213)
 
 
 React Web App (new)
